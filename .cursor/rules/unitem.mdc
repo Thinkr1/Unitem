@@ -47,9 +47,11 @@ iOS (Swift/SwiftUI) vs Android (Kotlin/Compose). `ARCHITECTURE.md` is authoritat
 ## Pipeline (ARCHITECTURE.md §4)
 
 ```
-discover (deterministic) → map (heuristics + LLM) → judge (LLM fan-out)
+discover (deterministic) → map (heuristics + LLM) → fast-judge (deterministic) → judge (LLM, if needed)
 → reconcile (propagate PR / flag ticket / hold explanation) → review (/UI console)
 ```
+
+See `docs/10-pipeline-io.md` for per-layer I/O and known flaws (F1–F8).
 
 ## Repo layout
 

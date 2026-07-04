@@ -5,7 +5,9 @@ description: Run the full Unitem pipeline for a screen — discover, map, judge,
 
 # Run Pipeline
 
-End-to-end workflow for one mapped screen (ARCHITECTURE.md §4).
+End-to-end workflow for one mapped screen (`ARCHITECTURE.md` §4).
+
+**I/O reference:** `docs/10-pipeline-io.md` · **Demo fixture:** `examples/login-demo-full-flow.json`
 
 ## Trigger phrases
 
@@ -13,43 +15,42 @@ End-to-end workflow for one mapped screen (ARCHITECTURE.md §4).
 - "Sync the iOS primary-color change to Android"
 - "Audit the Login screen for drift"
 
-## Steps
+## Steps (strict order)
 
-1. **discover** — deterministic facts / atomic changes (`detect-diff`)
-2. **map** — resolve iOS↔Android pair via `mapping.json`
-3. **judge** — one ticket per change (`classify-change` → `classifier`)
-4. Human review in the `/UI` console (accept / override → `overrides.jsonl`)
-5. **reconcile** — for accepted propagate/flag, `generate-fix` (`ios/android-patcher`)
-6. **verify** — build + screenshots (`verifier`), then open PR
+0. **scope-check** — gate; inject flags into LLM if product drift detected
+1. **discover** — `detect-diff` (deterministic)
+2. **map** — `examples/mapping.json` / `mapping.json`
+3. **fast-judge** — resolve unambiguous rules **without LLM**
+4. **judge** — `/classifier` **only** for `needs_llm[]` from fast-judge
+5. **review** — human in `/UI` (accept / override → `overrides.jsonl`)
+6. **reconcile** — `generate-fix` for accepted propagate/flag
+7. **verify** — `/verifier`, then PR
 
-## UI / engine contract (ARCHITECTURE.md §7)
+## Model routing
 
-The `/UI` app is the review console (already built). The engine serves it via a
-local FastAPI on port **8787**:
+See `.cursor/MODEL-ROUTING.md`. Summary: no LLM for steps 0–3; thinking model for ambiguous classify only; composer for patches.
 
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /comparison?screen=login` | Latest `ComparisonResult` (replaces `mockData.ts`) |
-| `POST /findings/{id}/accept` | Apply fix; propagate ⇒ open PR, return PR URL |
-| `POST /findings/{id}/override` `{verdict, note?}` | Record corrected verdict to `overrides.jsonl` |
-| `GET /events` (SSE, stretch) | Push re-analysis progress during the demo |
+## UI / engine contract
+
+FastAPI `:8787` when engine exists — see `ARCHITECTURE.md` §7. Today: `examples/login-demo-full-flow.json` + `UI/src/mockData.ts`.
 
 ## Cloud agent prompt (copy-paste)
 
 ```
 Run the Unitem diff pipeline for the Login screen.
 
-1. Read mapping.json and conventions/conventions.yaml
-2. Discover atomic changes from the latest git diff on sample-ios/
-3. Classify each change (invoke classifier subagent)
-4. For propagate verdicts, generate the Android patch (android-patcher)
-5. Verify build, open PR on the Android repo
-6. Emit tickets.json for the /UI console
+0. scope-check — confirm design-consistency scope (not migration playbook)
+1. Read examples/mapping.json, conventions/conventions.yaml, examples/login-demo-full-flow.json
+2. Discover atomic changes (detect-diff / git diff on sample-ios/)
+3. fast-judge EACH change — skip classifier when resolved
+4. /classifier ONLY for unresolved changes
+5. propagate → android-patcher; hold → no patch; flag → one-line fix
+6. /verifier on Android; branch sync/propagate-UNI-001; open PR
+7. Emit final_tickets matching the demo fixture schema
 
-Demo scope only — do not scan outside the mapped Login files.
+Demo scope only. Do not scan outside mapped Login files.
 ```
 
 ## Parallelism
 
-Use `/multitask` or Plan → Build in Parallel for independent work (ios-patcher +
-android-patcher, or classifier fan-out across atomic changes). Bound concurrency.
+Classifier fan-out only for `needs_llm[]`. Patchers parallel only when both platforms need independent fixes.

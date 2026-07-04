@@ -27,6 +27,7 @@ Read them in order. They are self-contained — you should not need the original
 | `06-convention-knowledge-base.md` | The "secret sauce" — seed rules for propagate/hold/flag (start here for engine work) |
 | `07-venture-brief.md` | Business framing + validation questions (for the pitch) |
 | `09-market-analysis-v2.md` | Deep market / competitive / GTM research + 60s pitch script (migration-playbook wedge — adjacent to Unitem) |
+| `10-pipeline-io.md` | **Layer I/O contract** — inputs/outputs, fast-judge gate, flaw registry, how to call each step |
 
 ---
 
