@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('deviceBridge', {
   ios: {
     list: invoke('device:ios:list'),
     boot: invoke('device:ios:boot'),
+    open: invoke('device:ios:open'),
     shutdown: invoke('device:ios:shutdown'),
     screenshot: invoke('device:ios:screenshot'),
     install: invoke('device:ios:install'),

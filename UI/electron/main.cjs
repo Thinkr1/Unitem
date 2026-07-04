@@ -33,6 +33,7 @@ function createWindow() {
 function registerDeviceBridgeHandlers() {
   ipcMain.handle('device:ios:list', () => deviceBridge.ios.list())
   ipcMain.handle('device:ios:boot', (_e, udid) => deviceBridge.ios.boot(udid))
+  ipcMain.handle('device:ios:open', (_e, udid) => deviceBridge.ios.open(udid))
   ipcMain.handle('device:ios:shutdown', (_e, udid) => deviceBridge.ios.shutdown(udid))
   ipcMain.handle('device:ios:screenshot', (_e, udid) => deviceBridge.ios.screenshot(udid))
   ipcMain.handle('device:ios:install', (_e, udid, appPath) => deviceBridge.ios.install(udid, appPath))

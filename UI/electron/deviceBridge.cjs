@@ -19,6 +19,7 @@
 
 const { execFile, spawn } = require('node:child_process')
 const fs = require('node:fs/promises')
+const fsSync = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
@@ -37,28 +38,44 @@ function run(cmd, args, opts = {}) {
   })
 }
 
-function androidSdkRoot() {
-  return process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT || null
+/** Common default install locations, tried when $ANDROID_HOME/$ANDROID_SDK_ROOT aren't set. */
+function defaultAndroidSdkCandidates() {
+  const home = os.homedir()
+  switch (process.platform) {
+    case 'darwin':
+      return [path.join(home, 'Library', 'Android', 'sdk')]
+    case 'win32':
+      return [path.join(process.env.LOCALAPPDATA || '', 'Android', 'Sdk')]
+    default:
+      return [path.join(home, 'Android', 'Sdk'), path.join(home, 'Android', 'sdk')]
+  }
+}
+
+function androidSdkRoots() {
+  const configured = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT
+  const roots = [configured, ...defaultAndroidSdkCandidates()].filter(Boolean)
+  return roots.filter((root) => fsSync.existsSync(root))
 }
 
 async function firstWorkingBin(name, candidates) {
   for (const bin of candidates) {
     try {
-      await fs.access(bin)
+      await fs.access(bin, fsSync.constants.X_OK)
       return bin
     } catch {
       // try next
     }
   }
-  return name // let PATH resolution have a go
+  return name // nothing found on disk — let PATH resolution have a go (and fail loudly if that misses too)
 }
 
 async function resolveAndroidBin(name) {
-  const root = androidSdkRoot()
-  const candidates = root
-    ? [path.join(root, 'emulator', name), path.join(root, 'platform-tools', name)]
-    : []
-  return firstWorkingBin(name, candidates)
+  const exeName = process.platform === 'win32' ? `${name}.exe` : name
+  const candidates = androidSdkRoots().flatMap((root) => [
+    path.join(root, 'emulator', exeName),
+    path.join(root, 'platform-tools', exeName),
+  ])
+  return firstWorkingBin(exeName, candidates)
 }
 
 // ── iOS (xcrun simctl) ───────────────────────────────────────────────────────
@@ -83,20 +100,49 @@ async function listIOSSimulators() {
   return devices
 }
 
+/**
+ * Brings up the real Simulator.app GUI window, focused on `udid`. Tries a few
+ * variants because `open -a Simulator` can be finicky across Xcode versions —
+ * throws (with the last, most useful error) only if every variant fails.
+ */
+async function openIOSSimulatorApp(udid) {
+  const attempts = [
+    ['-a', 'Simulator', '--args', '-CurrentDeviceUDID', udid],
+    ['-b', 'com.apple.iphonesimulator', '--args', '-CurrentDeviceUDID', udid],
+    ['-a', 'Simulator'],
+  ]
+  let lastErr = null
+  for (const args of attempts) {
+    try {
+      await run('open', args)
+      return
+    } catch (err) {
+      lastErr = err
+    }
+  }
+  throw new Error(
+    `"open -a Simulator" failed (${lastErr?.message ?? 'unknown error'}). Confirm Xcode is ` +
+      'installed and Simulator.app exists (try opening it manually from Spotlight).',
+  )
+}
+
 async function bootIOSSimulator(udid) {
   try {
     await run('xcrun', ['simctl', 'boot', udid])
   } catch (err) {
     if (!/already booted/i.test(err.stderr ?? '')) throw err
   }
-  // Best-effort: bring up the actual Simulator.app window. Non-fatal if it
-  // fails (e.g. no GUI session) — screenshots still work headless.
+
+  // Booting via simctl alone is headless — it does NOT show a window. The
+  // actual point of this feature is a real, interactive Simulator.app window,
+  // so failing to open it is reported back rather than swallowed.
   try {
-    await run('open', ['-a', 'Simulator', '--args', '-CurrentDeviceUDID', udid])
-  } catch {
-    // ignore
+    await openIOSSimulatorApp(udid)
+    return { udid, openedGui: true, openError: null }
+  } catch (err) {
+    console.error('[deviceBridge] simctl booted the device but could not open Simulator.app:', err)
+    return { udid, openedGui: false, openError: err.message }
   }
-  return { udid }
 }
 
 async function shutdownIOSSimulator(udid) {
@@ -158,15 +204,48 @@ async function listAndroidDevices() {
     })
 }
 
-/** Boots an AVD as a detached background process; does not wait for boot. */
+/**
+ * Boots an AVD as a detached background process (with its normal GUI window —
+ * we never pass `-no-window`) and does not wait for boot to finish.
+ *
+ * `spawn()` failures (e.g. the `emulator` binary doesn't actually exist) are
+ * reported asynchronously via an `'error'` event, not a thrown exception, so
+ * without this guard a bad path would look like a successful launch. We give
+ * the process a brief window to fail fast before declaring success.
+ */
 async function launchAndroidEmulator(avdName) {
   const bin = await resolveAndroidBin('emulator')
-  const child = spawn(bin, ['-avd', avdName, '-netdelay', 'none', '-netspeed', 'full'], {
-    detached: true,
-    stdio: 'ignore',
+  return new Promise((resolve, reject) => {
+    const child = spawn(bin, ['-avd', avdName, '-netdelay', 'none', '-netspeed', 'full'], {
+      detached: true,
+      stdio: 'ignore',
+    })
+
+    let settled = false
+    child.once('error', (err) => {
+      if (settled) return
+      settled = true
+      reject(
+        new Error(
+          `Could not start the Android emulator ("${bin}" — ${err.message}). Install the ` +
+            'Android SDK (emulator + platform-tools) and set $ANDROID_HOME, or add the ' +
+            'emulator binary to PATH.',
+        ),
+      )
+    })
+    child.once('exit', (code, signal) => {
+      if (settled) return
+      settled = true
+      reject(new Error(`The Android emulator exited immediately (code ${code}, signal ${signal}). Check the AVD is valid.`))
+    })
+
+    setTimeout(() => {
+      if (settled) return
+      settled = true
+      child.unref()
+      resolve({ avdName, pid: child.pid })
+    }, 500)
   })
-  child.unref()
-  return { avdName, pid: child.pid }
 }
 
 /** Polls `adb` until some emulator serial reports boot_completed=1, or times out. */
@@ -237,6 +316,7 @@ module.exports = {
   ios: {
     list: listIOSSimulators,
     boot: bootIOSSimulator,
+    open: openIOSSimulatorApp,
     shutdown: shutdownIOSSimulator,
     screenshot: screenshotIOSSimulator,
     install: installIOSApp,

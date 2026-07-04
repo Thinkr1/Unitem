@@ -29,7 +29,8 @@ export interface PickFileOptions {
 export interface DeviceBridge {
   ios: {
     list(): Promise<IOSSimulatorInfo[]>
-    boot(udid: string): Promise<{ udid: string }>
+    boot(udid: string): Promise<{ udid: string; openedGui: boolean; openError: string | null }>
+    open(udid: string): Promise<void>
     shutdown(udid: string): Promise<{ udid: string }>
     screenshot(udid: string): Promise<string> // base64 PNG
     install(udid: string, appPath: string): Promise<{ udid: string; appPath: string }>

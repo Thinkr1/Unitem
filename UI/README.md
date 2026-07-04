@@ -46,7 +46,7 @@ Each code panel has three view modes: **Visual** (drawn mockup / live DartPad re
 
 ## Live device simulators (real iOS Simulator + Android emulator)
 
-The **Simulator** tab streams an actual device screen — not a drawn mockup — by shelling out to the real platform tooling from the Electron **main** process (`electron/deviceBridge.cjs`), and exposing a narrow API to the renderer via `contextBridge` (`electron/preload.cjs`, `window.deviceBridge`). This only works inside the Electron shell:
+The **Simulator** tab's job is to put a **real, separate, fully-interactive** Simulator.app / Android Emulator window on your screen — not a picture of one — by shelling out to the real platform tooling from the Electron **main** process (`electron/deviceBridge.cjs`), via a narrow `contextBridge` API (`electron/preload.cjs`, `window.deviceBridge`). This only works inside the Electron shell:
 
 ```bash
 npm run dev        # not `npm run dev:vite` — the browser has no child_process access
@@ -54,13 +54,15 @@ npm run dev        # not `npm run dev:vite` — the browser has no child_process
 
 **iOS Simulator (macOS only):**
 - Requires Xcode + the Command Line Tools (`xcode-select --install`) and at least one Simulator runtime installed via Xcode ▸ Settings ▸ Platforms.
-- The Simulator tab lists available simulators (`xcrun simctl list devices available --json`), boots the selected one, and polls `xcrun simctl io <udid> screenshot` (~1 fps) to render the live screen.
-- "Install .app… " + a bundle ID + "Launch" drive `xcrun simctl install` / `simctl launch`, so once you have a real, built `.app` (e.g. from `xcodebuild -scheme ... -destination 'platform=iOS Simulator,name=...'`), you can push it straight into the booted simulator.
+- The Simulator tab lists available simulators (`xcrun simctl list devices available --json`). **"Open Simulator"** runs `xcrun simctl boot <udid>` then `open -a Simulator` (with a couple of fallback strategies) — this is what actually raises the native Simulator.app window. The panel reports plainly whether that succeeded; if it didn't, there's a retry button and the exact error (e.g. Xcode not installed).
+- "Install .app…" + a bundle ID + "Launch" drive `xcrun simctl install` / `simctl launch`, so once you have a real, built `.app` (e.g. from `xcodebuild -scheme ... -destination 'platform=iOS Simulator,name=...'`), you can push it straight into the booted simulator.
+- An optional **"Mirror this device's screen in-panel"** checkbox polls `xcrun simctl io <udid> screenshot` (~1 fps) into a read-only `<img>` inside the app — off by default, since it's a convenience preview, not the real thing. Use the actual Simulator.app window for anything interactive.
 
 **Android emulator (Linux / macOS / Windows):**
-- Requires the Android SDK (`emulator`, `platform-tools`) on `PATH`, or `$ANDROID_HOME`/`$ANDROID_SDK_ROOT` set, plus at least one AVD created in Android Studio's Device Manager (or `avdmanager create avd ...`).
+- Requires the Android SDK (`emulator`, `platform-tools`) — auto-detected from `$ANDROID_HOME`/`$ANDROID_SDK_ROOT`, or the default install locations (`~/Library/Android/sdk` on macOS, `~/Android/Sdk` on Linux), or `PATH`. Create at least one AVD in Android Studio's Device Manager (or `avdmanager create avd ...`).
 - Hardware virtualization (KVM on Linux, HAXM/HVF elsewhere) is required for a usable boot time — it will technically boot without it, just very slowly.
-- The Simulator tab lists AVDs (`emulator -list-avds`), boots the selected one, waits for `sys.boot_completed`, then polls `adb exec-out screencap -p` (~1 fps).
+- **"Launch Emulator"** spawns the real `emulator -avd <name>` process with its normal GUI (never `-no-window`), so a real emulator window opens on your desktop; a status banner confirms the launch (first boot takes 30–90s). If the `emulator` binary genuinely can't be found or the AVD is invalid, that now surfaces as a real error instead of silently doing nothing.
 - "Install .apk…" + a package name + "Launch" drive `adb install` / `adb shell monkey -p <pkg> ...`.
+- Same optional, off-by-default **screen mirror** as iOS, via `adb exec-out screencap -p` (~1 fps).
 
-**What this does *not* do:** it doesn't compile the pasted Swift/Dart snippet into a real app — that needs an actual Xcode/Gradle project (see `sample-ios/`, `sample-android/` at the repo root) built via `xcodebuild`/`./gradlew`, which is the engine's job per `docs/03-architecture.md`. This tab is the reusable "control a real device" plumbing that a future build step can install its output into; today it's a live window onto whatever's already on the simulator/emulator, plus manual install/launch for an app you've built yourself.
+**What this does *not* do:** it doesn't compile the pasted Swift/Dart snippet into a real app — that needs an actual Xcode/Gradle project (see `sample-ios/`, `sample-android/` at the repo root) built via `xcodebuild`/`./gradlew`, which is the engine's job per `docs/03-architecture.md`. This tab is the reusable "control a real device" plumbing that a future build step can install its output into; today it launches the real simulator/emulator and lets you manually install/launch an app you've built yourself.

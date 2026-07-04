@@ -6,14 +6,20 @@ import type {
 } from '../types/deviceBridge'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SimulatorPreview shows a *real* iOS Simulator (via `xcrun simctl`) or a real
-// Android emulator (via `emulator`/`adb`), streamed as polled screenshots.
+// SimulatorPreview's job is to put a REAL, interactive Simulator.app / Android
+// Emulator window on screen — a separate native window you can click and type
+// into, not a picture of one. "Boot" always tries to bring that native window
+// to the front and reports plainly whether it succeeded.
+//
+// The in-app screenshot mirror below is a secondary, opt-in convenience (e.g.
+// for glancing at state without alt-tabbing) — it is a *read-only, ~1fps
+// picture*, explicitly labeled as such so it's never mistaken for "the
+// simulator" itself.
 //
 // This only works inside the Electron shell (`npm run dev`), because it needs
 // `child_process` access in the main process — see `electron/deviceBridge.cjs`
 // and `electron/preload.cjs`. In the plain browser dev server
-// (`npm run dev:vite`) `window.deviceBridge` is undefined and we show an
-// explainer instead of pretending to stream a device.
+// (`npm run dev:vite`) `window.deviceBridge` is undefined.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SCREENSHOT_INTERVAL_MS = 1000
@@ -43,7 +49,7 @@ function Unavailable({ platform }: { platform: 'ios' | 'android' }) {
         Live {platform === 'ios' ? 'iOS Simulator' : 'Android emulator'} unavailable
       </p>
       <p className="max-w-xs text-[11px] leading-snug text-ink-faint">
-        Real device streaming needs the Electron shell, not the browser dev
+        Launching a real device needs the Electron shell, not the browser dev
         server. Run <code className="text-ink-muted">npm run dev</code> (not{' '}
         <code className="text-ink-muted">npm run dev:vite</code>) from{' '}
         <code className="text-ink-muted">UI/</code>.
@@ -63,23 +69,12 @@ function ErrorNote({ message }: { message: string }) {
   )
 }
 
-function Screen({ dataUrl, loading }: { dataUrl: string | null; loading: boolean }) {
-  return (
-    <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black">
-      {dataUrl ? (
-        <img
-          src={dataUrl}
-          alt="Live device screen"
-          className="max-h-full max-w-full object-contain"
-          draggable={false}
-        />
-      ) : (
-        <span className="text-[11px] text-ink-faint">
-          {loading ? 'Waiting for first frame…' : 'No device booted yet'}
-        </span>
-      )}
-    </div>
-  )
+function StatusNote({ tone, message }: { tone: 'success' | 'warning'; message: string }) {
+  const cls =
+    tone === 'success'
+      ? 'border-accent/40 bg-accent/10 text-ink'
+      : 'border-severity-warning/30 bg-severity-warning/10 text-severity-warning'
+  return <div className={`mx-3 mb-2 rounded-lg border px-3 py-2 text-[10.5px] leading-snug ${cls}`}>{message}</div>
 }
 
 // ── iOS ──────────────────────────────────────────────────────────────────────
@@ -88,6 +83,8 @@ function IOSSimulatorPanel({ bridge }: { bridge: NonNullable<Window['deviceBridg
   const [devices, setDevices] = useState<IOSSimulatorInfo[]>([])
   const [udid, setUdid] = useState<string>('')
   const [booting, setBooting] = useState(false)
+  const [gui, setGui] = useState<{ ok: boolean; error: string | null } | null>(null)
+  const [mirrorOn, setMirrorOn] = useState(false)
   const [screenshot, setScreenshot] = useState<string | null>(null)
   const [bundleId, setBundleId] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -112,7 +109,13 @@ function IOSSimulatorPanel({ bridge }: { bridge: NonNullable<Window['deviceBridg
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const startPolling = (targetUdid: string) => {
+  const stopMirror = () => {
+    if (pollRef.current) window.clearInterval(pollRef.current)
+    pollRef.current = null
+    setScreenshot(null)
+  }
+
+  const startMirror = (targetUdid: string) => {
     if (pollRef.current) window.clearInterval(pollRef.current)
     pollRef.current = window.setInterval(async () => {
       try {
@@ -124,17 +127,35 @@ function IOSSimulatorPanel({ bridge }: { bridge: NonNullable<Window['deviceBridg
     }, SCREENSHOT_INTERVAL_MS)
   }
 
+  useEffect(() => {
+    if (mirrorOn && udid) startMirror(udid)
+    else stopMirror()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mirrorOn])
+
   const onBoot = async () => {
     if (!udid) return
     setBooting(true)
     setError(null)
+    setGui(null)
     try {
-      await bridge.ios.boot(udid)
-      startPolling(udid)
+      const result = await bridge.ios.boot(udid)
+      setGui({ ok: result.openedGui, error: result.openError })
+      if (mirrorOn) startMirror(udid)
     } catch (err) {
       setError((err as Error).message)
     } finally {
       setBooting(false)
+    }
+  }
+
+  const onOpenAgain = async () => {
+    if (!udid) return
+    try {
+      await bridge.ios.open(udid)
+      setGui({ ok: true, error: null })
+    } catch (err) {
+      setGui({ ok: false, error: (err as Error).message })
     }
   }
 
@@ -168,12 +189,31 @@ function IOSSimulatorPanel({ bridge }: { bridge: NonNullable<Window['deviceBridg
         />
         <ToolbarButton onClick={refreshDevices}>Refresh</ToolbarButton>
         <ToolbarButton onClick={onBoot} disabled={!udid || booting} primary>
-          {booting ? 'Booting…' : 'Boot'}
+          {booting ? 'Opening…' : 'Open Simulator'}
         </ToolbarButton>
       </Toolbar>
 
       {error && <ErrorNote message={error} />}
-      <Screen dataUrl={screenshot} loading={booting} />
+      {gui?.ok && (
+        <StatusNote
+          tone="success"
+          message="Simulator.app should now be the front window — switch to it (⌘-Tab) to tap and type directly."
+        />
+      )}
+      {gui && !gui.ok && (
+        <StatusNote
+          tone="warning"
+          message={`Device booted, but couldn't bring up the Simulator.app window automatically (${gui.error}). Try again, or open Simulator.app yourself from Spotlight — it will show the already-booted device.`}
+        />
+      )}
+      {gui && !gui.ok && (
+        <div className="mx-3 -mt-1 mb-2">
+          <ToolbarButton onClick={onOpenAgain}>Try opening the window again</ToolbarButton>
+        </div>
+      )}
+
+      <MirrorToggle enabled={mirrorOn} onChange={setMirrorOn} label="Mirror this device's screen in-panel" />
+      {mirrorOn && <Screen dataUrl={screenshot} loading={booting} />}
 
       <Toolbar>
         <ToolbarButton onClick={onInstall} disabled={!udid}>
@@ -201,6 +241,8 @@ function AndroidEmulatorPanel({ bridge }: { bridge: NonNullable<Window['deviceBr
   const [devices, setDevices] = useState<AndroidDeviceInfo[]>([])
   const [serial, setSerial] = useState<string>('')
   const [booting, setBooting] = useState(false)
+  const [launched, setLaunched] = useState(false)
+  const [mirrorOn, setMirrorOn] = useState(false)
   const [screenshot, setScreenshot] = useState<string | null>(null)
   const [packageName, setPackageName] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -236,7 +278,13 @@ function AndroidEmulatorPanel({ bridge }: { bridge: NonNullable<Window['deviceBr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const startPolling = (targetSerial: string) => {
+  const stopMirror = () => {
+    if (pollRef.current) window.clearInterval(pollRef.current)
+    pollRef.current = null
+    setScreenshot(null)
+  }
+
+  const startMirror = (targetSerial: string) => {
     if (pollRef.current) window.clearInterval(pollRef.current)
     pollRef.current = window.setInterval(async () => {
       try {
@@ -248,26 +296,31 @@ function AndroidEmulatorPanel({ bridge }: { bridge: NonNullable<Window['deviceBr
     }, SCREENSHOT_INTERVAL_MS)
   }
 
+  useEffect(() => {
+    if (mirrorOn && serial) startMirror(serial)
+    else stopMirror()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mirrorOn])
+
   const onBoot = async () => {
     if (!avdName) return
     setBooting(true)
     setError(null)
+    setLaunched(false)
     try {
+      // launchEmulator throws if the process fails to start at all (bad
+      // path, bad AVD) instead of silently "succeeding" — see deviceBridge.
       await bridge.android.launchEmulator(avdName)
+      setLaunched(true)
       const { serial: bootedSerial } = await bridge.android.waitForBoot()
       setSerial(bootedSerial)
-      startPolling(bootedSerial)
+      if (mirrorOn) startMirror(bootedSerial)
       refreshDevices()
     } catch (err) {
       setError((err as Error).message)
     } finally {
       setBooting(false)
     }
-  }
-
-  const onAttach = () => {
-    if (!serial) return
-    startPolling(serial)
   }
 
   const onInstall = async () => {
@@ -302,9 +355,17 @@ function AndroidEmulatorPanel({ bridge }: { bridge: NonNullable<Window['deviceBr
         />
         <ToolbarButton onClick={refreshAvds}>Refresh</ToolbarButton>
         <ToolbarButton onClick={onBoot} disabled={!avdName || booting} primary>
-          {booting ? 'Booting…' : 'Boot'}
+          {booting ? 'Starting…' : 'Launch Emulator'}
         </ToolbarButton>
       </Toolbar>
+
+      {error && <ErrorNote message={error} />}
+      {launched && !error && (
+        <StatusNote
+          tone="success"
+          message="A real Android Emulator window has been started — look for a new window on your desktop (first boot can take 30–90s). It's fully interactive: click and type directly into it."
+        />
+      )}
 
       {devices.length > 0 && (
         <Toolbar>
@@ -314,14 +375,11 @@ function AndroidEmulatorPanel({ bridge }: { bridge: NonNullable<Window['deviceBr
             options={devices.map((d) => ({ value: d.serial, label: `${d.serial} (${d.state})` }))}
             placeholder="No running devices"
           />
-          <ToolbarButton onClick={onAttach} disabled={!serial}>
-            Attach
-          </ToolbarButton>
         </Toolbar>
       )}
 
-      {error && <ErrorNote message={error} />}
-      <Screen dataUrl={screenshot} loading={booting} />
+      <MirrorToggle enabled={mirrorOn} onChange={setMirrorOn} label="Mirror this device's screen in-panel" />
+      {mirrorOn && <Screen dataUrl={screenshot} loading={booting} />}
 
       <Toolbar>
         <ToolbarButton onClick={onInstall} disabled={!serial}>
@@ -342,6 +400,48 @@ function AndroidEmulatorPanel({ bridge }: { bridge: NonNullable<Window['deviceBr
 }
 
 // ── Shared bits ──────────────────────────────────────────────────────────────
+
+function Screen({ dataUrl, loading }: { dataUrl: string | null; loading: boolean }) {
+  return (
+    <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black">
+      {dataUrl ? (
+        <img
+          src={dataUrl}
+          alt="Mirrored device screen (read-only)"
+          className="max-h-full max-w-full object-contain"
+          draggable={false}
+        />
+      ) : (
+        <span className="text-[11px] text-ink-faint">
+          {loading ? 'Waiting for first frame…' : 'No device booted yet'}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function MirrorToggle({
+  enabled,
+  onChange,
+  label,
+}: {
+  enabled: boolean
+  onChange: (value: boolean) => void
+  label: string
+}) {
+  return (
+    <label className="flex shrink-0 cursor-pointer items-center gap-2 px-3 pb-1 text-[10.5px] text-ink-faint">
+      <input
+        type="checkbox"
+        checked={enabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-3 w-3 accent-info-blue"
+      />
+      {label}
+      <span className="text-ink-faint/70">(read-only, ~1fps — the real window above is the interactive one)</span>
+    </label>
+  )
+}
 
 function Toolbar({ children }: { children: React.ReactNode }) {
   return <div className="flex shrink-0 items-center gap-1.5 px-3 py-2">{children}</div>
