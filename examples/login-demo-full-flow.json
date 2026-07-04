@@ -1,0 +1,265 @@
+{
+  "$schema": "unitem/demo-full-flow/v1",
+  "meta": {
+    "description": "End-to-end Login demo — all pipeline layers, inputs/outputs, three verdicts. Use with --mock or agent dry-run.",
+    "screen": "login",
+    "mode": "diff",
+    "product": "unitem-design-consistency",
+    "authoritative_spec": "ARCHITECTURE.md",
+    "io_doc": "docs/10-pipeline-io.md",
+    "flaws_doc": "docs/10-pipeline-io.md#known-flaws-fix-or-work-around"
+  },
+  "scope_check": {
+    "input": {
+      "user_request": "Run unitem diff on Login after iOS primary color change",
+      "files_touched": ["sample-ios/LoginView.swift"]
+    },
+    "output": {
+      "aligned": true,
+      "product": "unitem-design-consistency",
+      "flags": [],
+      "blocked_steps": [],
+      "notes": "In demo scope. Not a Swift→Flutter migration task."
+    }
+  },
+  "mapping": {
+    "input": { "screen": "login" },
+    "output": {
+      "feature": "login",
+      "ios": ["sample-ios/LoginView.swift"],
+      "android": ["sample-android/app/src/main/java/com/unitem/login/LoginScreen.kt"],
+      "confidence": 0.94,
+      "status": "confirmed",
+      "one_sided": false
+    }
+  },
+  "pipeline": {
+    "discover": {
+      "input": {
+        "mode": "diff",
+        "origin": "git diff sample-ios/LoginView.swift",
+        "screen": "login"
+      },
+      "output": {
+        "atomic_changes": [
+          {
+            "id": "change_001",
+            "kind": "color",
+            "name": "color.primary",
+            "before": "#5A55F2",
+            "after": "#4F46E5",
+            "origin_platform": "ios",
+            "location": { "file": "sample-ios/LoginView.swift", "line": 34 }
+          },
+          {
+            "id": "change_002",
+            "kind": "component",
+            "name": "toggle.notifications",
+            "before": "custom-switch",
+            "after": "native-toggle",
+            "origin_platform": "ios",
+            "location": { "file": "sample-ios/LoginView.swift", "line": 48 }
+          },
+          {
+            "id": "change_003",
+            "kind": "spacing",
+            "name": "button.padding.vertical",
+            "before": "16",
+            "after": "20",
+            "origin_platform": "ios",
+            "location": { "file": "sample-ios/LoginView.swift", "line": 33 }
+          }
+        ]
+      }
+    },
+    "fast_judge": {
+      "input": "atomic_changes[] + conventions/conventions.yaml",
+      "output": {
+        "resolved": [
+          {
+            "change_id": "change_001",
+            "source": "fast-judge",
+            "matched_rule": "propagate/brand-color",
+            "ticket_partial": {
+              "verdict": "propagate",
+              "confidence": 0.98,
+              "reason": "Brand primary color changed on iOS; semantic brand tokens must match on Android.",
+              "convention_refs": ["propagate/brand-color"]
+            }
+          },
+          {
+            "change_id": "change_002",
+            "source": "fast-judge",
+            "matched_rule": "hold/native-switch",
+            "ticket_partial": {
+              "verdict": "hold",
+              "confidence": 0.97,
+              "reason": "iOS native Toggle vs Android Material Switch — correct platform idiom; do not sync control chrome.",
+              "convention_refs": ["hold/native-switch"]
+            }
+          }
+        ],
+        "needs_llm": [
+          {
+            "change_id": "change_003",
+            "reason": "Spacing change may be brand-scale (propagate) or one-off drift (flag) — no single deterministic rule without context."
+          }
+        ]
+      }
+    },
+    "judge": {
+      "input": "change_003 only (fast-judge missed)",
+      "output": {
+        "classifier_calls": 1,
+        "ticket_partials": [
+          {
+            "change_id": "change_003",
+            "verdict": "flag",
+            "confidence": 0.88,
+            "reason": "Button padding 20pt is off the 16pt scale token; Android is 12pt — both platforms drifted from rulebook.",
+            "convention_refs": ["flag/off-scale-spacing"]
+          }
+        ]
+      }
+    },
+    "reconcile": {
+      "input": "final_tickets with verdict propagate | flag only",
+      "output": {
+        "actions": [
+          {
+            "ticket_id": "UNI-001",
+            "verdict": "propagate",
+            "agent": "android-patcher",
+            "branch": "sync/propagate-UNI-001",
+            "proposed_fix": {
+              "target_platform": "android",
+              "file": "sample-android/app/src/main/java/com/unitem/login/LoginScreen.kt",
+              "diff": "- val Primary = Color(0xFF5A55F2)\n+ val Primary = Color(0xFF4F46E5)"
+            }
+          },
+          {
+            "ticket_id": "UNI-002",
+            "verdict": "hold",
+            "agent": null,
+            "action": "record_explanation_only"
+          },
+          {
+            "ticket_id": "UNI-003",
+            "verdict": "flag",
+            "agent": "android-patcher",
+            "proposed_fix": {
+              "target_platform": "android",
+              "file": "sample-android/app/src/main/java/com/unitem/login/LoginScreen.kt",
+              "diff": "- .padding(vertical = 12.dp)\n+ .padding(vertical = 16.dp)"
+            }
+          }
+        ]
+      }
+    },
+    "verify": {
+      "input": "applied UNI-001 patch",
+      "output": {
+        "status": "pass",
+        "ios_build": "skipped",
+        "android_build": "pass",
+        "visual_match": "manual_review",
+        "notes": "Cloud VM: Android gradle only; iOS needs Mac."
+      }
+    },
+    "review": {
+      "input": "GET /comparison?screen=login",
+      "output": "ComparisonResult — see ui_comparison_snapshot below"
+    }
+  },
+  "final_tickets": [
+    {
+      "id": "UNI-001",
+      "mode": "diff",
+      "category": "color",
+      "change": {
+        "kind": "token",
+        "name": "color.primary",
+        "before": "#5A55F2",
+        "after": "#4F46E5",
+        "origin_platform": "ios",
+        "location": { "file": "LoginView.swift", "line": 34 }
+      },
+      "verdict": "propagate",
+      "severity": "high",
+      "confidence": 0.98,
+      "reason": "Brand primary color changed on iOS; semantic brand tokens must match on Android.",
+      "convention_refs": ["propagate/brand-color"],
+      "proposed_fix": {
+        "target_platform": "android",
+        "file": "sample-android/app/src/main/java/com/unitem/login/LoginScreen.kt",
+        "diff": "- val Primary = Color(0xFF5A55F2)\n+ val Primary = Color(0xFF4F46E5)"
+      },
+      "status": "pending"
+    },
+    {
+      "id": "UNI-002",
+      "mode": "diff",
+      "category": "component",
+      "change": {
+        "kind": "component",
+        "name": "toggle.notifications",
+        "before": "custom-switch",
+        "after": "native-toggle",
+        "origin_platform": "ios",
+        "location": { "file": "LoginView.swift", "line": 48 }
+      },
+      "verdict": "hold",
+      "severity": "low",
+      "confidence": 0.97,
+      "reason": "iOS native Toggle vs Android Material Switch — correct platform idiom.",
+      "convention_refs": ["hold/native-switch"],
+      "proposed_fix": null,
+      "status": "pending"
+    },
+    {
+      "id": "UNI-003",
+      "mode": "diff",
+      "category": "spacing",
+      "change": {
+        "kind": "style",
+        "name": "button.padding.vertical",
+        "before": "16",
+        "after": "20",
+        "origin_platform": "ios",
+        "location": { "file": "LoginView.swift", "line": 33 }
+      },
+      "verdict": "flag",
+      "severity": "medium",
+      "confidence": 0.88,
+      "reason": "Off-scale spacing on both platforms vs 16pt rulebook token.",
+      "convention_refs": ["flag/off-scale-spacing"],
+      "proposed_fix": {
+        "target_platform": "android",
+        "file": "sample-android/app/src/main/java/com/unitem/login/LoginScreen.kt",
+        "diff": "- .padding(vertical = 12.dp)\n+ .padding(vertical = 16.dp)"
+      },
+      "status": "pending"
+    }
+  ],
+  "ui_comparison_snapshot": {
+    "screen": "login",
+    "note": "UI mockData.ts still flag-only + Dart — this is the target shape after engine wire-up",
+    "findings_count": { "propagate": 1, "hold": 1, "flag": 1 }
+  },
+  "agent_run_script": {
+    "description": "Copy-paste order for a full dry run when engine is missing",
+    "steps": [
+      "1. scope-check — confirm Login diff, not migration playbook scope",
+      "2. detect-diff — emit atomic_changes (or read pipeline.discover.output)",
+      "3. fast-judge — resolve change_001 + change_002 without LLM",
+      "4. /classifier — ONLY for change_003",
+      "5. /android-patcher — UNI-001 + UNI-003",
+      "6. /verifier — Android build",
+      "7. Emit final_tickets → UI / mock API"
+    ]
+  },
+  "observed_flaws_in_this_run": [
+    { "flaw_id": "F2", "note": "sample-android/ not in repo — reconcile is simulated" },
+    { "flaw_id": "F4", "note": "UI mockData lacks propagate/hold cards — use this fixture as source of truth until wired" }
+  ]
+}

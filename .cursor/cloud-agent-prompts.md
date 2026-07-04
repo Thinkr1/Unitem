@@ -9,18 +9,19 @@ The engine (`/engine` unitem package) serves it via FastAPI on port 8787.
 Run the Unitem `diff` pipeline for the Login screen.
 
 Read:
-- mapping.json
-- conventions/conventions.yaml
+- docs/10-pipeline-io.md (layer I/O)
+- examples/login-demo-full-flow.json (target end-to-end shape)
+- examples/mapping.json, conventions/conventions.yaml
 - ARCHITECTURE.md (§4 pipeline, §7 tickets.json schema)
 
 Steps:
-1. Discover atomic changes from the latest git diff on sample-ios/ (deterministic)
-2. Resolve the mapped iOS<->Android pair via mapping.json
-3. For each change, invoke the classifier subagent (propagate | hold | flag)
-4. For propagate verdicts on brand color, invoke android-patcher
-5. Apply the minimal Kotlin diff, invoke verifier
-6. Commit on branch sync/propagate-UNI-001 and open a PR
-7. Emit tickets.json for the /UI console (GET /comparison?screen=login)
+0. scope-check — gate (not migration-playbook scope)
+1. Discover atomic changes from git diff on sample-ios/ (deterministic)
+2. fast-judge EACH change — skip classifier when resolved
+3. /classifier ONLY for needs_llm[] changes
+4. propagate → android-patcher; hold → no patch; flag → one-line fix
+5. /verifier, branch sync/propagate-UNI-001, open PR
+6. Emit final_tickets for /UI console
 
 Do not edit files outside the mapped Login pair. Enable auto-create PR.
 ```

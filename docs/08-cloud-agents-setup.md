@@ -8,8 +8,9 @@ This repo includes all **in-repo** Cursor agent configuration for **Unitem**.
 
 | Path | Purpose |
 |------|---------|
-| `.cursor/agents/` | orchestrator, classifier, ios-patcher, android-patcher, verifier, security-reviewer |
-| `.cursor/skills/` | detect-diff, classify-change, generate-fix, run-pipeline |
+| `.cursor/agents/` | orchestrator, scope-checker, classifier, ios-patcher, android-patcher, verifier, security-reviewer |
+| `.cursor/skills/` | detect-diff, fast-judge, scope-check, classify-change, generate-fix, run-pipeline |
+| `.cursor/MODEL-ROUTING.md` | Model per task + task-switching rules |
 | `.cursor/rules/` | unitem (core), swift-ios, kotlin-android |
 | `.cursor/BUGBOT.md` | PR review rules |
 | `.cursor/environment.json` | Cloud VM install/start commands |

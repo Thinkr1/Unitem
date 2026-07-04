@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "screens": [
+    {
+      "feature": "login",
+      "ios": ["sample-ios/LoginView.swift"],
+      "android": ["sample-android/app/src/main/java/com/unitem/login/LoginScreen.kt"],
+      "confidence": 0.94,
+      "status": "confirmed",
+      "one_sided": false
+    }
+  ]
+}

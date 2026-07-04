@@ -1,0 +1,54 @@
+# Convention KB seed — fast-judge + classifier ground truth
+# Full seed: docs/06-convention-knowledge-base.md
+
+rules:
+  - id: propagate/brand-color
+    verdict: propagate
+    applies_to: [color]
+    when: "changed value is brand or semantic color token (primary, accent, error, success, warning)"
+    why: "Brand colors express identity; they must match across platforms."
+    fast_judge: true
+
+  - id: propagate/copy-label
+    verdict: propagate
+    applies_to: [content]
+    when: "user-facing label or copy string changed"
+    why: "Copy should match across platforms unless locale-specific."
+    fast_judge: true
+
+  - id: hold/native-switch
+    verdict: hold
+    applies_to: [component]
+    when: "toggle/switch uses platform-native control style"
+    why: "iOS UISwitch vs Material Switch — correct divergence."
+    fast_judge: true
+
+  - id: hold/navigation-idiom
+    verdict: hold
+    applies_to: [navigation]
+    when: "navigation chrome follows platform HIG vs Material patterns"
+    why: "Navigation is a platform idiom."
+    fast_judge: true
+
+  - id: flag/hardcoded-color
+    verdict: flag
+    applies_to: [color]
+    when: "raw hex used instead of token, or stale token value"
+    why: "Breaks single source of truth."
+    fast_judge: true
+    deterministic_check: token_membership
+
+  - id: flag/off-scale-spacing
+    verdict: flag
+    applies_to: [spacing]
+    when: "value not in spacing scale from agent.md rulebook"
+    why: "Off-scale spacing is drift."
+    fast_judge: false
+    deterministic_check: scale_membership
+
+  - id: flag/stale-token
+    verdict: flag
+    applies_to: [color, spacing, typography]
+    when: "one platform updated token, counterpart still has old value"
+    why: "Incomplete propagation reads as drift."
+    fast_judge: true
