@@ -1,0 +1,8 @@
+{
+  "verdict": "propagate",
+  "severity": "high",
+  "confidence": 0.94,
+  "reason": "The brand primary color token changed on iOS. Brand colors express product identity and must be identical on both platforms — Android's BrandPrimary still holds the old value #4F46E5 and should be updated to #6366F1.",
+  "convention_refs": ["propagate/brand-color"],
+  "expected": null
+}
