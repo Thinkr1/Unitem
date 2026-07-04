@@ -62,3 +62,4 @@ Rules:
 - Resolve every `Theme.x` / token reference to its literal value AND keep the token name in `colors`.
 - `must_haves` should capture everything that makes this design *this* design: field styling (rounded/filled vs underline), button shape and fill, typography, spacing, toggle treatment, alignment.
 - Do not invent elements that are not in the source. Do not omit any visible element.
+- Transcribe every `text` string **exactly as written — character for character**, including apparent typos, misspellings, or unusual wording. NEVER correct, complete, translate, or normalize copy; the literal text is intentional and must be preserved verbatim.

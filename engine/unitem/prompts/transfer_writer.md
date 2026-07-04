@@ -63,6 +63,24 @@ file you change.
    elements (use the spec's exact values), full-width buttons where iOS uses
    `.frame(maxWidth: .infinity)`, and platform-appropriate equivalents where
    the spec calls for them.
+8. Copy is authoritative from the **iOS source**, reproduced **exactly**. Every
+   user-visible string — heading, field placeholders/hints, labels, button
+   titles, links — MUST be byte-for-byte identical to its string in the iOS
+   source (the exact list is under "Exact copy" below). Reproduce each one
+   **verbatim, even if it looks like a typo, misspelling, or unusual wording —
+   it is intentional, NOT corruption.** Do NOT correct, complete, translate, or
+   normalize copy, and do NOT keep the previous Flutter wording where it differs.
+   This includes `TextField`/`SecureField` placeholder hints, not just `Text`.
+   The design spec is authoritative for *visuals*; the iOS source is
+   authoritative for *copy* — if they disagree on text, the iOS source wins.
+
+## Exact copy — reproduce every one of these strings verbatim
+
+These are the user-visible strings extracted directly from the iOS source. Each
+MUST appear character-for-character in your Flutter output (as a widget's text
+or a field's placeholder). Do not alter, correct, reorder-away, or omit any:
+
+{ios_copy}
 
 {failures}
 
