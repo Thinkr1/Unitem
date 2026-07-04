@@ -73,15 +73,14 @@ export interface Inconsistency {
 
 ---
 
-## The Dart → Kotlin question (please read before building more on Dart)
+## The Dart → Kotlin question — RESOLVED: Dart won
 
-The mock treats Android as **Flutter/Dart**. Strong recommendation to switch to **Kotlin / Jetpack Compose**:
-
-1. Flutter is itself cross-platform — one Dart codebase normally ships *both* iOS and Android. "Swift iOS + Flutter Android" is a customer that barely exists.
-2. Our Hold verdicts are grounded in a curated **Apple HIG vs Material Design** knowledge base — native-idiom reasoning that doesn't make sense against a framework whose point is uniform rendering.
-3. Cost today: `language: 'swift' | 'kotlin'`, new mock code string, a tweak in `lib/highlight.tsx`. Cost after more Dart-specific work: much higher.
-
-If you have a reason to prefer Dart (e.g. that's the sample app someone's already building), raise it now — this is the one open decision that blocks other work.
+Your DartPad live preview settled it: the demo pair is **SwiftUI + Flutter** (the
+in-browser preview is a stage moment Kotlin can't match), and **the engine now
+reads Dart natively** — extractors dispatch by file extension (.swift/.kt/.dart),
+so Kotlin stays supported and the pitch is "the judgment layer is
+language-agnostic". `sample-flutter/` mirrors your mock's Login screen and its
+`theme.dart` is generated from the canonical tokens. Nothing for you to change.
 
 ---
 
@@ -90,8 +89,13 @@ If you have a reason to prefer Dart (e.g. that's the sample app someone's alread
 | Your seam | Replaced by |
 |---|---|
 | `mockData.ts` import | `GET http://localhost:8787/comparison?screen=login` → `ComparisonResult` |
-| `onResolve(id)` | `POST /findings/{id}/accept` → applies fix; propagate ⇒ opens PR, returns PR URL |
+| **`onAnalyze({iosCode, androidCode})`** | **`POST /analyze` body `{iosCode, androidCode}` → full `ComparisonResult`** — paste both sides, get judged verdicts with per-side `{value, line}` for your line-linking; the android panel's `language` comes back as `'dart'` or `'kotlin'` (auto-detected) |
+| `onResolve(id)` | `POST /findings/{id}/accept` → applies fix; propagate ⇒ opens PR, returns PR URL (pasted snippets: status-flip only) |
 | `onIgnore(id)` | `POST /findings/{id}/override` body `{verdict, note?}` → recorded, feeds future runs |
+
+The `/analyze` endpoint is live and tested against your own `mockData.ts` code pair —
+it returns 4 findings on it (heading size, button color, button padding, label copy),
+each with `verdict`, `reason`, `confidence`, and `expected`.
 
 `ComparisonResult` gains `screen: string`. `onResolveAll` should apply to flags only (each propagate is an individual PR decision). Until the API exists, extend `mockData.ts` with one example per verdict and keep developing against it — the engine ships a `--mock` mode that serves the same fixtures, so the UI never blocks on the backend.
 
