@@ -38,50 +38,31 @@ logger = logging.getLogger("unitem")
 def _mock_responder(prompt: str, cwd: Path) -> str:
     """Offline demo analyzer used by ``--mock``.
 
-    Real analysis uses the Cursor CLI. This deterministic stand-in compares the
-    spacing signals already extracted into the prompt so ``unitem run --mock``
-    produces tangible tickets on the example without an API key. It is a demo,
-    not a substitute for the LLM review (tests inject their own responders).
+    Produces findings with file paths, line numbers, and code snippets so tickets
+    are actionable without an API key. Real analysis uses the Cursor CLI.
     """
 
     import json as _json
     import re as _re
 
-    def _nums(label: str) -> set[float]:
-        m = _re.search(rf"{label}:\s*(.+)", prompt)
-        if not m:
-            return set()
-        out: set[float] = set()
-        for tok in m.group(1).split(","):
-            tok = tok.strip()
-            try:
-                out.add(float(tok))
-            except ValueError:
-                continue
-        return out
+    from .spacing_hits import build_spacing_finding
 
     fm = _re.search(r"Feature name:\s*(.+)", prompt)
     feature = fm.group(1).strip() if fm else "Unknown"
 
+    def _section_files(label: str) -> list[str]:
+        m = _re.search(rf"## {label} files\n(.*?)(?:\n## |\Z)", prompt, _re.DOTALL)
+        if not m:
+            return []
+        return _re.findall(r"^### (.+)$", m.group(1), _re.MULTILINE)
+
+    ios_files = _section_files("iOS")
+    android_files = _section_files("Android")
+
     findings = []
-    ios_sp, and_sp = _nums("iOS spacing values"), _nums("Android spacing values")
-    if ios_sp and and_sp and ios_sp != and_sp:
-        findings.append(
-            {
-                "category": "spacing",
-                "severity": "medium",
-                "kind": "inconsistency",
-                "title": "Spacing values differ between platforms",
-                "description": (
-                    f"iOS uses spacing {sorted(ios_sp)} while Android uses "
-                    f"{sorted(and_sp)}."
-                ),
-                "rationale": "agent.md requires a shared spacing scale (8pt grid).",
-                "suggested_fix": "Align the platforms to the same spacing constants.",
-                "platforms": ["ios", "android"],
-                "confidence": 0.7,
-            }
-        )
+    spacing = build_spacing_finding(feature, ios_files, android_files)
+    if spacing:
+        findings.append(spacing)
     return _json.dumps({"findings": findings})
 
 

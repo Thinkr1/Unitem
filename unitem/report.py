@@ -63,6 +63,10 @@ def render_markdown(report: TicketReport) -> str:
                 if l.line:
                     loc += f":{l.line}"
                 lines.append(f"- {loc}")
+                if l.snippet:
+                    lines.append(f"  ```")
+                    lines.append(f"  {l.snippet}")
+                    lines.append(f"  ```")
             lines.append("")
     return "\n".join(lines) + "\n"
 

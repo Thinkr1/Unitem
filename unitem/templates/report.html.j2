@@ -63,7 +63,11 @@
           {% if t.suggested_fix %}<br /><span class="fix"><em>Fix:</em> {{ t.suggested_fix }}</span>{% endif %}
         </td>
         <td class="loc">
-          {% for l in t.locations %}{{ l.platform.value }}: {{ l.file }}{% if l.line %}:{{ l.line }}{% endif %}<br />{% endfor %}
+          {% for l in t.locations %}
+          <div>{{ l.platform.value }}: <code>{{ l.file }}</code>{% if l.line %}:{{ l.line }}{% endif %}</div>
+          {% if l.snippet %}<pre style="margin:.2rem 0 .6rem;padding:.4rem .6rem;background:rgba(128,128,128,.12);border-radius:6px;white-space:pre-wrap;font-size:.75rem;">{{ l.snippet }}</pre>{% endif %}
+          {% endfor %}
+          {% if not t.locations %}<span class="empty-loc">(no file locations recorded)</span>{% endif %}
         </td>
       </tr>
       {% endfor %}
