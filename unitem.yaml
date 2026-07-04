@@ -1,6 +1,6 @@
 # Unitem engine configuration (paths relative to this file).
 ios_root: sample-ios
-android_root: sample-android
+android_root: sample-flutter   # demo pair = SwiftUI + Flutter (Kotlin sample stays supported: sample-android)
 tokens_file: design-tokens/tokens.json
 conventions: conventions/conventions.yaml
 agent_md: examples/agent.md      # replace with a root agent.md when one lands

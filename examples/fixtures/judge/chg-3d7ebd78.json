@@ -1,0 +1,8 @@
+{
+  "verdict": "flag",
+  "severity": "high",
+  "confidence": 0.82,
+  "reason": "Primary-button vertical padding is 20 on iOS and 12 on Android against a 16 standard — both sides drifted from the shared spacing decision, in opposite directions.",
+  "convention_refs": ["flag/off-scale", "propagate/spacing-scale"],
+  "expected": "16"
+}

@@ -30,6 +30,12 @@ class OverrideBody(BaseModel):
     note: Optional[str] = None
 
 
+class AnalyzeBody(BaseModel):
+    iosCode: str
+    androidCode: str
+    screen: str = "pasted"
+
+
 class Store:
     """Tickets + source panels, persisted back to out/tickets.json on change."""
 
@@ -86,7 +92,12 @@ def ticket_to_ui(ticket: Ticket, cfg: Config) -> dict:
         ios_loc, android_loc = counter_loc, origin_loc
 
     def side(loc: Location | None, is_origin: bool) -> dict:
-        value = change.after if is_origin else _read_value_at(cfg, loc)
+        if is_origin:
+            value = change.after
+        elif loc and loc.file.startswith("pasted/"):
+            value = change.before or "—"  # pasted snippets aren't on disk
+        else:
+            value = _read_value_at(cfg, loc)
         return {"value": value, "line": loc.line if loc else 0}
 
     return {
@@ -117,22 +128,36 @@ def ticket_to_ui(ticket: Ticket, cfg: Config) -> dict:
     }
 
 
+_SUFFIX_LANGUAGE = {".swift": "swift", ".kt": "kotlin", ".dart": "dart"}
+
+
 def _panel(cfg: Config, platform: str, screen: str) -> dict:
-    """Read the mapped screen file for one platform from mapping.json."""
-    mapping_path = cfg.root / "examples" / "mapping.json"
+    """Read the mapped screen file for one platform (live mapping, examples fallback)."""
     file: str | None = None
-    if mapping_path.is_file():
-        mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
-        for entry in mapping.get("screens", []):
-            if entry["feature"] == screen and entry.get(platform):
-                file = entry[platform][0]
-                break
+    from .discovery import discover
+    from .mapping import build_mapping
+
+    facts = discover(cfg)
+    mapping = build_mapping(cfg, facts["ios"], facts["android"])
+    for entry in mapping.screens:
+        files = entry.ios if platform == "ios" else entry.android
+        if entry.feature == screen and files:
+            file = files[0]
+            break
+    if file is None:
+        mapping_path = cfg.root / "examples" / "mapping.json"
+        if mapping_path.is_file():
+            data = json.loads(mapping_path.read_text(encoding="utf-8"))
+            for entry in data.get("screens", []):
+                if entry["feature"] == screen and entry.get(platform):
+                    file = entry[platform][0]
+                    break
     if file is None:
         file = f"examples/{platform}/LoginView.swift"
     path = cfg.root / file
     return {
         "platform": platform,
-        "language": "swift" if platform == "ios" else "kotlin",
+        "language": _SUFFIX_LANGUAGE.get(Path(file).suffix, "swift"),
         "fileName": Path(file).name,
         "code": path.read_text(encoding="utf-8") if path.is_file() else "// (file not found)",
     }
@@ -169,13 +194,71 @@ def create_app(cfg: Config) -> FastAPI:
             "rulebook": _rulebook(cfg),
         }
 
+    @app.post("/analyze")
+    def analyze(body: AnalyzeBody) -> dict:
+        from .aggregate import assign_ids, dedupe, sort_tickets
+        from .analyze import analyze_pair, detect_android_language
+        from .judge import JudgeContext, judge_all, load_overrides, load_rules
+        from .runner import get_runner
+
+        changes = analyze_pair(body.iosCode, body.androidCode)
+        slices = {}
+        for change in changes:
+            if change.counterpart_location:
+                lines = body.androidCode.splitlines()
+                loc = change.counterpart_location.line
+                lo, hi = max(0, loc - 16), min(len(lines), loc + 15)
+                slices[change.id] = "\n".join(
+                    f"{i + 1:>4}  {t}" for i, t in enumerate(lines[lo:hi], start=lo)
+                )
+        ctx = JudgeContext(
+            rules=load_rules(cfg.conventions),
+            agent_md=cfg.read_agent_md(),
+            overrides=load_overrides(cfg.overrides_file),
+            mode="audit",
+            counterpart_slices=slices,
+            timeout_s=cfg.runner.timeout_s,
+        )
+        runner = get_runner(cfg)
+        tickets = assign_ids(sort_tickets(dedupe(judge_all(changes, ctx, runner))))
+        with store.lock:
+            store.tickets = TicketFile(
+                run_id=time.strftime("%Y%m%d-%H%M%S"),
+                mode="audit",
+                screen=body.screen,
+                tickets=tickets,
+            )
+            store.save()
+        android_lang = detect_android_language(body.androidCode)
+        return {
+            "screen": body.screen,
+            "ios": {
+                "platform": "ios",
+                "language": "swift",
+                "fileName": "LoginView.swift",
+                "code": body.iosCode,
+            },
+            "android": {
+                "platform": "android",
+                "language": android_lang,
+                "fileName": f"login_screen.{'dart' if android_lang == 'dart' else 'kt'}",
+                "code": body.androidCode,
+            },
+            "inconsistencies": [ticket_to_ui(t, cfg) for t in tickets],
+            "rulebook": _rulebook(cfg),
+        }
+
     @app.post("/findings/{ticket_id}/accept")
     def accept(ticket_id: str) -> dict:
         with store.lock:
             ticket = store.find(ticket_id)
             if ticket.status != "pending":
                 raise HTTPException(status_code=409, detail=f"ticket is {ticket.status}")
-            from .generate import apply_and_pr  # late import: generate lands in M7
+            if ticket.change.location.file.startswith("pasted/"):
+                ticket.status = "accepted"  # pasted snippets have no files to patch
+                store.save()
+                return ticket_to_ui(ticket, cfg)
+            from .generate import apply_and_pr
 
             apply_and_pr(ticket, cfg)
             ticket.status = "accepted"

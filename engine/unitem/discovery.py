@@ -7,7 +7,7 @@ from .config import Config
 from .extractors import DesignFact, extract_file
 from .schema import Platform
 
-_EXTENSIONS = {"ios": "*.swift", "android": "*.kt"}
+_EXTENSIONS = {"ios": ["*.swift"], "android": ["*.kt", "*.dart"]}
 
 
 def discover_platform(cfg: Config, platform: Platform) -> list[DesignFact]:
@@ -15,8 +15,9 @@ def discover_platform(cfg: Config, platform: Platform) -> list[DesignFact]:
     if not root.is_dir():
         return []
     facts: list[DesignFact] = []
-    for path in sorted(root.rglob(_EXTENSIONS[platform])):
-        facts.extend(extract_file(path, platform, rel_to=cfg.root))
+    for pattern in _EXTENSIONS[platform]:
+        for path in sorted(root.rglob(pattern)):
+            facts.extend(extract_file(path, platform, rel_to=cfg.root))
     return facts
 
 

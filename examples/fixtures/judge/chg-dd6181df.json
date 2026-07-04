@@ -1,0 +1,8 @@
+{
+  "verdict": "flag",
+  "severity": "high",
+  "confidence": 0.9,
+  "reason": "The primary button uses #5A55F2 on iOS while Android uses #4F46E5, which matches the brand primary token. The iOS value is an off-palette literal — likely a stale value from an earlier palette. Point iOS back at the brand token.",
+  "convention_refs": ["flag/hardcoded-color", "flag/stale-token"],
+  "expected": "#4F46E5"
+}

@@ -45,11 +45,13 @@ def _transform_token(ticket: Ticket, cfg: Config) -> list[Path]:
         check=True,
         timeout=120,
     )
-    return [
+    generated = [
         cfg.tokens_file,
-        cfg.ios_root / "Sources" / "Theme.swift",
-        cfg.android_root / "app/src/main/java/com/unitem/sample/ui/theme/Color.kt",
+        cfg.root / "sample-ios/Sources/Theme.swift",
+        cfg.root / "sample-android/app/src/main/java/com/unitem/sample/ui/theme/Color.kt",
+        cfg.root / "sample-flutter/lib/theme.dart",
     ]
+    return [p for p in generated if p.is_file()]
 
 
 def _transform_substitution(ticket: Ticket, cfg: Config) -> list[Path]:
@@ -73,18 +75,22 @@ def _transform_substitution(ticket: Ticket, cfg: Config) -> list[Path]:
     path = cfg.root / change.location.file
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
     idx = change.location.line - 1
-    hex_value = change.after.lstrip("#")
-    if platform == "android":
-        old_literal = f"Color(0xFF{hex_value.upper()})"
-        replacement = token.name or ""
-    else:
-        old_literal = f'Color(hex: "#{hex_value.upper()}")'
+    hex_value = change.after.lstrip("#").upper()
+    suffix = path.suffix
+    if suffix == ".swift":
+        old_literal = f'Color(hex: "#{hex_value}")'
         replacement = f"Theme.{token.name}"
+    elif suffix == ".dart":
+        old_literal = f"Color(0xFF{hex_value})"
+        replacement = f"AppTheme.{token.name}"
+    else:  # .kt
+        old_literal = f"Color(0xFF{hex_value})"
+        replacement = token.name or ""
     if old_literal not in lines[idx]:
         raise ValueError(f"literal {old_literal} not found at {path}:{change.location.line}")
     lines[idx] = lines[idx].replace(old_literal, replacement)
 
-    if platform == "android" and token.name:
+    if suffix == ".kt" and token.name:
         import_line = f"import com.unitem.sample.ui.theme.{token.name}\n"
         if import_line not in lines:
             last_import = max(

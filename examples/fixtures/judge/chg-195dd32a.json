@@ -1,0 +1,8 @@
+{
+  "verdict": "propagate",
+  "severity": "medium",
+  "confidence": 0.88,
+  "reason": "The primary auth action reads 'Sign In' on iOS but 'Log in' on Android. Copy is product voice and must match across platforms — the spec label 'Sign In' should apply to Android as well.",
+  "convention_refs": ["propagate/copy-label"],
+  "expected": "Sign In"
+}

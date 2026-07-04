@@ -1,0 +1,8 @@
+{
+  "verdict": "flag",
+  "severity": "medium",
+  "confidence": 0.85,
+  "reason": "The screen heading renders at 30 on iOS and 26 on Android, but the type scale sets headings at 28. Both platforms drifted off the shared scale — neither is a platform idiom.",
+  "convention_refs": ["flag/stale-token", "propagate/brand-typography"],
+  "expected": "28"
+}

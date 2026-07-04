@@ -186,10 +186,14 @@ def _style_deltas(
 
 
 def _copy_near(facts: list[DesignFact], file: str, line: int) -> str | None:
+    """Nearest copy string in the same file (Dart styles span multiple lines)."""
+    best: tuple[int, str] | None = None
     for fact in facts:
-        if fact.kind == "copy" and fact.file == file and abs(fact.line - line) <= 1:
-            return fact.value
-    return None
+        if fact.kind == "copy" and fact.file == file:
+            distance = abs(fact.line - line)
+            if distance <= 3 and (best is None or distance < best[0]):
+                best = (distance, fact.value)
+    return best[1] if best else None
 
 
 def _cross_check(

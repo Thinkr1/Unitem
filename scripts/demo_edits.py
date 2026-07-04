@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 THEME = ROOT / "sample-ios/Sources/Theme.swift"
 LOGIN_IOS = ROOT / "sample-ios/Sources/LoginView.swift"
-LOGIN_ANDROID = ROOT / "sample-android/app/src/main/java/com/unitem/sample/login/LoginScreen.kt"
+LOGIN_ANDROID = ROOT / "sample-flutter/lib/login_screen.dart"
 
 
 def replace_once(path: Path, old: str, new: str) -> None:
@@ -63,7 +63,7 @@ def edit_3_flag() -> None:
 
 def reset() -> None:
     subprocess.run(
-        ["git", "checkout", "--", "sample-ios", "sample-android", "design-tokens"],
+        ["git", "checkout", "--", "sample-ios", "sample-android", "sample-flutter", "design-tokens"],
         cwd=ROOT,
         check=True,
     )
