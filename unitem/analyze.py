@@ -85,10 +85,13 @@ def analyze_entry(
     cfg: UnitemConfig,
     runner: CursorRunner,
     cwd: Path,
+    on_event=None,
 ) -> List[Finding]:
     prompt = build_prompt(entry, agent_md, cfg)
+    # Tag each event with the section so concurrent output stays legible.
+    section_cb = (lambda ev: on_event(entry, ev)) if on_event else None
     try:
-        result = runner.run(prompt, cwd)
+        result = runner.run(prompt, cwd, section_cb)
     except CursorError as exc:
         logger.error("Agent run failed for %s: %s", entry.feature, exc)
         return []
@@ -106,13 +109,14 @@ def analyze_mapping(
     runner: CursorRunner,
     cwd: Optional[Path] = None,
     progress=None,
+    on_event=None,
 ) -> List[Finding]:
     cwd = cwd or Path.cwd()
     findings: List[Finding] = []
 
     with ThreadPoolExecutor(max_workers=max(1, cfg.concurrency)) as pool:
         futures = {
-            pool.submit(analyze_entry, entry, agent_md, cfg, runner, cwd): entry
+            pool.submit(analyze_entry, entry, agent_md, cfg, runner, cwd, on_event): entry
             for entry in mapping.entries
         }
         for fut in as_completed(futures):

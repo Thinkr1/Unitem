@@ -36,16 +36,56 @@ logger = logging.getLogger("unitem")
 
 
 def _mock_responder(prompt: str, cwd: Path) -> str:
-    """Offline responder: emits an empty finding set.
+    """Offline demo analyzer used by ``--mock``.
 
-    Real analysis uses the Cursor CLI. The mock keeps the pipeline runnable
-    without an API key (tests inject their own richer responders).
+    Real analysis uses the Cursor CLI. This deterministic stand-in compares the
+    spacing signals already extracted into the prompt so ``unitem run --mock``
+    produces tangible tickets on the example without an API key. It is a demo,
+    not a substitute for the LLM review (tests inject their own responders).
     """
 
-    return '{"findings": []}'
+    import json as _json
+    import re as _re
+
+    def _nums(label: str) -> set[float]:
+        m = _re.search(rf"{label}:\s*(.+)", prompt)
+        if not m:
+            return set()
+        out: set[float] = set()
+        for tok in m.group(1).split(","):
+            tok = tok.strip()
+            try:
+                out.add(float(tok))
+            except ValueError:
+                continue
+        return out
+
+    fm = _re.search(r"Feature name:\s*(.+)", prompt)
+    feature = fm.group(1).strip() if fm else "Unknown"
+
+    findings = []
+    ios_sp, and_sp = _nums("iOS spacing values"), _nums("Android spacing values")
+    if ios_sp and and_sp and ios_sp != and_sp:
+        findings.append(
+            {
+                "category": "spacing",
+                "severity": "medium",
+                "kind": "inconsistency",
+                "title": "Spacing values differ between platforms",
+                "description": (
+                    f"iOS uses spacing {sorted(ios_sp)} while Android uses "
+                    f"{sorted(and_sp)}."
+                ),
+                "rationale": "agent.md requires a shared spacing scale (8pt grid).",
+                "suggested_fix": "Align the platforms to the same spacing constants.",
+                "platforms": ["ios", "android"],
+                "confidence": 0.7,
+            }
+        )
+    return _json.dumps({"findings": findings})
 
 
-def _make_runner(cfg: UnitemConfig, mock: bool) -> CursorRunner:
+def _make_runner(cfg: UnitemConfig, mock: bool, stream: bool = False) -> CursorRunner:
     if mock:
         return MockCursorRunner(_mock_responder)
     return CliCursorRunner(
@@ -53,7 +93,34 @@ def _make_runner(cfg: UnitemConfig, mock: bool) -> CursorRunner:
         model=cfg.model,
         timeout_seconds=cfg.timeout_seconds,
         max_retries=cfg.max_retries,
+        stream=stream,
     )
+
+
+def _summarize_event(event: dict) -> str:
+    """Turn a stream-json event into a short one-line description."""
+
+    etype = event.get("type", "event")
+    subtype = event.get("subtype")
+    if etype == "tool_call" or "tool" in etype:
+        name = event.get("name") or event.get("tool") or subtype or "tool"
+        status = event.get("status") or subtype or ""
+        return f"tool {name} {status}".strip()
+    if etype == "assistant":
+        from .cursor_runner import _event_text
+
+        text = _event_text(event).strip().replace("\n", " ")
+        return f"message: {text[:120]}" if text else "message"
+    if etype == "result":
+        return "result received"
+    return f"{etype}{('/' + subtype) if subtype else ''}"
+
+
+def _make_event_printer():
+    def _printer(entry, event) -> None:
+        click.echo(f"    [{entry.feature}] {_summarize_event(event)}")
+
+    return _printer
 
 
 def _load(config: str) -> UnitemConfig:
@@ -124,7 +191,8 @@ def map(config: str) -> None:
 @main.command()
 @click.option("-c", "--config", default="unitem.yaml", help="Path to unitem.yaml")
 @click.option("--mock", is_flag=True, help="Use the offline mock runner (no API key).")
-def analyze(config: str, mock: bool) -> None:
+@click.option("-v", "--verbose", is_flag=True, help="Stream each agent's steps live.")
+def analyze(config: str, mock: bool, verbose: bool) -> None:
     """Launch Cursor agents per section and collect findings."""
 
     cfg = _load(config)
@@ -133,12 +201,16 @@ def analyze(config: str, mock: bool) -> None:
         raise click.ClickException("No mapping.json found. Run `unitem map` first.")
     mapping = load_mapping(mapping_path)
     agent_md = cfg.agent_md_path.read_text()
-    runner = _make_runner(cfg, mock)
+    runner = _make_runner(cfg, mock, stream=verbose)
+    click.echo(f"Launching {len(mapping.entries)} agent(s) (concurrency={cfg.concurrency})...")
 
     def _progress(entry, findings):
         click.echo(f"  {entry.feature}: {len(findings)} finding(s)")
 
-    findings = analyze_mapping(mapping, agent_md, cfg, runner, progress=_progress)
+    on_event = _make_event_printer() if verbose else None
+    findings = analyze_mapping(
+        mapping, agent_md, cfg, runner, progress=_progress, on_event=on_event
+    )
     _findings_path(cfg).parent.mkdir(parents=True, exist_ok=True)
     _findings_path(cfg).write_text(
         json.dumps([f.model_dump(mode="json") for f in findings], indent=2)
@@ -172,31 +244,51 @@ def report(config: str) -> None:
 @main.command()
 @click.option("-c", "--config", default="unitem.yaml", help="Path to unitem.yaml")
 @click.option("--mock", is_flag=True, help="Use the offline mock runner (no API key).")
-def run(config: str, mock: bool) -> None:
+@click.option("-v", "--verbose", is_flag=True, help="Stream each agent's steps live.")
+def run(config: str, mock: bool, verbose: bool) -> None:
     """Run the full pipeline: index -> map -> analyze -> report."""
 
     cfg = _load(config)
+
+    click.echo("[1/4] index: discovering files and screens...")
     inventory = build_inventory(cfg)
     _inventory_path(cfg).parent.mkdir(parents=True, exist_ok=True)
     _inventory_path(cfg).write_text(json.dumps(inventory.model_dump(mode="json"), indent=2))
     click.echo(
-        f"Indexed {len(inventory.files)} files; "
-        f"{len(inventory.ios_screens)} iOS / {len(inventory.android_screens)} Android screens."
+        f"      {len(inventory.files)} files; "
+        f"{len(inventory.ios_screens)} iOS / {len(inventory.android_screens)} Android screens "
+        f"-> {_inventory_path(cfg)}"
     )
 
+    click.echo("[2/4] map: correlating iOS <-> Android screens...")
     mapping = generate_mapping(inventory, cfg)
     mapping = apply_overrides(mapping, cfg.mapping_overrides_path)
     save_mapping(mapping, _mapping_path(cfg))
-    click.echo(f"Mapped {len(mapping.entries)} features.")
+    click.echo(
+        f"      {len(mapping.entries)} feature(s) mapped; "
+        f"{len(mapping.unmatched_ios)} iOS / {len(mapping.unmatched_android)} Android unmatched "
+        f"-> {_mapping_path(cfg)}"
+    )
 
+    click.echo(
+        f"[3/4] analyze: launching {len(mapping.entries)} agent(s) "
+        f"(concurrency={cfg.concurrency})..."
+    )
     agent_md = cfg.agent_md_path.read_text()
-    runner = _make_runner(cfg, mock)
+    runner = _make_runner(cfg, mock, stream=verbose)
 
     def _progress(entry, findings):
-        click.echo(f"  {entry.feature}: {len(findings)} finding(s)")
+        click.echo(f"      {entry.feature}: {len(findings)} finding(s)")
 
-    findings = analyze_mapping(mapping, agent_md, cfg, runner, progress=_progress)
+    on_event = _make_event_printer() if verbose else None
+    findings = analyze_mapping(
+        mapping, agent_md, cfg, runner, progress=_progress, on_event=on_event
+    )
+    _findings_path(cfg).write_text(
+        json.dumps([f.model_dump(mode="json") for f in findings], indent=2)
+    )
 
+    click.echo("[4/4] report: aggregating findings into tickets...")
     report_obj = aggregate(findings, cfg)
     write_json(report_obj, cfg.output_dir / "tickets.json")
     write_markdown(report_obj, cfg.output_dir / "report.md")

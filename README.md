@@ -44,21 +44,25 @@ are counted but never ticketed.
 pip install -e .
 ```
 
-## Configure
+## Feeding it the two codebases
 
-Create a `unitem.yaml` (see [`examples/unitem.yaml`](examples/unitem.yaml)):
+The two source trees and `agent.md` are the only inputs. You point at them with a
+`unitem.yaml` (see [`examples/unitem.yaml`](examples/unitem.yaml)); the tool
+reads files straight from disk (no build/checkout needed):
 
 ```yaml
-ios_path: ios
-android_path: android
-agent_md_path: agent.md
+ios_path: /path/to/MyApp-iOS         # root of the iOS project
+android_path: /path/to/MyApp-Android # root of the Android project
+agent_md_path: ./agent.md            # shared design principles
 output_dir: .unitem
 concurrency: 4
 # model: composer-2
 # mapping_overrides_path: mapping.overrides.yaml
 ```
 
-The two codebases and `agent.md` are the only inputs.
+Paths are resolved relative to the `unitem.yaml` file (absolute paths also work).
+The two roots can be separate repos, submodules, or subfolders of a monorepo.
+Point `-c` at the config: `unitem run -c path/to/unitem.yaml`.
 
 ## Run
 
@@ -80,11 +84,40 @@ unitem report   -c examples/unitem.yaml
 
 ### Offline / no API key
 
-Every stage runs offline with a mock analyzer so you can exercise discovery,
-mapping, aggregation, and reporting without calling Cursor:
+Every stage runs offline with a built-in demo analyzer so you can exercise
+discovery, mapping, aggregation, and reporting without calling Cursor. The demo
+analyzer does a simple deterministic spacing comparison, so on the bundled
+example it produces real tickets:
 
 ```bash
 unitem run -c examples/unitem.yaml --mock
+# -> 2 ticket(s) ... -> examples/.unitem/report.html
+```
+
+`--mock` is a stand-in for demonstration/testing only; real cross-platform
+review requires the Cursor agent (set `CURSOR_API_KEY`).
+
+### Seeing the exact steps
+
+The pipeline prints its four stages (`index -> map -> analyze -> report`),
+per-section finding counts, and writes every intermediate artifact to
+`output_dir`. To watch each agent's individual steps (tool calls, messages) as
+they happen, add `-v/--verbose`, which switches the runner to Cursor's
+`stream-json` output:
+
+```bash
+unitem run -c examples/unitem.yaml --verbose        # real agents, streamed
+unitem analyze -c examples/unitem.yaml --mock -v    # offline, synthetic events
+```
+
+Example verbose output:
+
+```
+[3/4] analyze: launching 2 agent(s) (concurrency=4)...
+    [Settings] tool read_file examples/android/settings/SettingsScreen.kt
+    [Settings] message: The Android edge padding is 8.dp but iOS uses 16...
+    [Settings] result received
+      Settings: 1 finding(s)
 ```
 
 ## Outputs
