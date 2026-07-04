@@ -4,11 +4,11 @@
   "terminals": [
     {
       "name": "ui",
-      "command": "cd UI && npm run dev"
+      "command": "cd UI && npm run dev:vite"
     },
     {
       "name": "engine",
-      "command": "echo 'Engine not built yet — see ARCHITECTURE.md §10. When ready: cd engine && pip3 install -e . && python3 -m unitem.api  # FastAPI on :8787'"
+      "command": "if [ -f engine/pyproject.toml ] || [ -f engine/setup.py ]; then cd engine && pip3 install -e . -q && python3 -m unitem.api; else echo '[engine] Not in repo yet — see ARCHITECTURE.md §10'; echo 'When ready: cd engine && pip3 install -e . && python3 -m unitem.api  # → http://127.0.0.1:8787'; echo 'UI still works from mockData.ts until then.'; fi; exec sleep infinity"
     }
   ]
 }

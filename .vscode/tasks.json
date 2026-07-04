@@ -1,0 +1,55 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "UI: Vite (browser)",
+      "type": "shell",
+      "command": "npm run dev:vite",
+      "options": { "cwd": "${workspaceFolder}/UI" },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Local:\\s+http"
+        }
+      },
+      "presentation": { "reveal": "always", "panel": "dedicated", "group": "unitem" }
+    },
+    {
+      "label": "UI: Electron (macOS desktop)",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": { "cwd": "${workspaceFolder}/UI" },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Local:\\s+http"
+        }
+      },
+      "presentation": { "reveal": "always", "panel": "dedicated", "group": "unitem" }
+    },
+    {
+      "label": "Engine: FastAPI",
+      "type": "shell",
+      "command": "if [ -f pyproject.toml ] || [ -f setup.py ]; then pip3 install -e . -q && python3 -m unitem.api; else echo 'Engine not built yet — see ARCHITECTURE.md §10'; fi",
+      "options": { "cwd": "${workspaceFolder}/engine" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "group": "unitem" }
+    },
+    {
+      "label": "Full stack",
+      "dependsOn": ["UI: Vite (browser)", "Engine: FastAPI"],
+      "dependsOrder": "parallel",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    }
+  ]
+}
