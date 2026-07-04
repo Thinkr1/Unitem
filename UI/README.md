@@ -67,3 +67,5 @@ npm run dev        # not `npm run dev:vite` — the browser has no child_process
 - Same optional, off-by-default **screen mirror** as iOS, via `adb exec-out screencap -p` (~1 fps).
 
 **What this does *not* do:** it doesn't compile the pasted Swift/Dart snippet into a real app — that needs an actual Xcode/Gradle project (see `sample-ios/`, `sample-android/` at the repo root) built via `xcodebuild`/`./gradlew`, which is the engine's job per `docs/03-architecture.md`. This tab is the reusable "control a real device" plumbing that a future build step can install its output into; today it launches the real simulator/emulator and lets you manually install/launch an app you've built yourself.
+
+**Verifying it all works:** `../scripts/verify-simulators.sh` runs the whole checklist non-interactively — UI build/lint/syntax always, plus (when the platform tooling exists) actually booting a real iOS Simulator, building/installing/launching `sample-ios/`, and booting a real Android emulator, printing PASS/FAIL/SKIP for each step.

@@ -267,16 +267,23 @@ async function listAndroidEmulators() {
 
 async function listAndroidDevices() {
   const bin = await resolveAndroidBin('adb')
-  const { stdout } = await run(bin, ['devices', '-l'])
-  return stdout
-    .split('\n')
-    .slice(1)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('*'))
-    .map((line) => {
-      const [serial, state] = line.split(/\s+/)
-      return { serial, state, isEmulator: serial.startsWith('emulator-') }
-    })
+  try {
+    const { stdout } = await run(bin, ['devices', '-l'])
+    return stdout
+      .split('\n')
+      .slice(1)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('*'))
+      .map((line) => {
+        const [serial, state] = line.split(/\s+/)
+        return { serial, state, isEmulator: serial.startsWith('emulator-') }
+      })
+  } catch (err) {
+    throw new Error(
+      `Could not run "adb devices" (${err.message}). Install the Android SDK platform-tools, ` +
+        'or set $ANDROID_HOME.',
+    )
+  }
 }
 
 /**
