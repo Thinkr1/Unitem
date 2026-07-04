@@ -6,7 +6,6 @@ import ScreenPanel, { type LinePulse } from './components/ScreenPanel'
 import InconsistenciesPanel, {
   type Filter,
 } from './components/InconsistenciesPanel'
-import LiveFlowPanel from './components/LiveFlowPanel'
 
 const SEVERITY_RANK: Record<Severity, number> = { error: 3, warning: 2, info: 1 }
 
@@ -82,7 +81,6 @@ export default function App() {
           Cross-platform consistency · Login screen
         </span>
       </header>
-      <LiveFlowPanel />
 
       <Group orientation="horizontal" className="min-h-0 flex-1">
         <Panel defaultSize={34} minSize={18}>
