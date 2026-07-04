@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "cd engine && python3 -c \"print('Design Diplomat: edit detected — run detect if mapped screen file changed')\" 2>/dev/null || true"
+      }
+    ]
+  }
+}

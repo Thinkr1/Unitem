@@ -1,0 +1,19 @@
+{
+  "brand": {
+    "color": {
+      "primary": "#2563EB",
+      "primaryDark": "#1D4ED8",
+      "error": "#DC2626",
+      "success": "#16A34A"
+    },
+    "spacing": {
+      "unit": 8,
+      "sm": 8,
+      "md": 16,
+      "lg": 24
+    },
+    "radius": {
+      "button": 8
+    }
+  }
+}

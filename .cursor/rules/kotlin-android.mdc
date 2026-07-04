@@ -1,0 +1,15 @@
+---
+description: Kotlin/Android rules for sample app and patch generation
+globs:
+  - "sample-android/**"
+  - "**/*.kt"
+---
+
+# Android / Kotlin Rules
+
+- Use Jetpack Compose for the sample Settings screen.
+- Platform-native controls (Material Switch, Material top app bar) are **hold** candidates.
+- Brand tokens (colors, spacing scale, typography) are **propagate** candidates.
+- Prefer design tokens over hardcoded `Color(0xFF...)` values. Hardcoded values are **flag** candidates.
+- Minimum touch target: 48dp.
+- System font is Roboto (hold). Brand font changes propagate.

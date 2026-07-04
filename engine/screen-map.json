@@ -1,0 +1,32 @@
+{
+  "screens": [
+    {
+      "name": "Settings",
+      "ios": {
+        "screen": "sample-ios/SettingsView.swift",
+        "theme": "sample-ios/Theme.swift"
+      },
+      "android": {
+        "screen": "sample-android/app/src/main/java/com/unitem/settings/SettingsScreen.kt",
+        "theme": "sample-android/app/src/main/java/com/unitem/settings/Color.kt"
+      }
+    }
+  ],
+  "demo_scenarios": [
+    {
+      "id": "propagate-primary-color",
+      "verdict": "propagate",
+      "description": "Brand primary color #2563EB -> #1D4ED8 on iOS propagates to Android"
+    },
+    {
+      "id": "hold-native-switch",
+      "verdict": "hold",
+      "description": "iOS UISwitch style change; Android keeps Material Switch"
+    },
+    {
+      "id": "flag-stale-color",
+      "verdict": "flag",
+      "description": "Android hardcoded stale primary color after brand update"
+    }
+  ]
+}

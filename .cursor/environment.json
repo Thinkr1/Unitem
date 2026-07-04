@@ -1,0 +1,15 @@
+{
+  "snapshot": "POPULATED_FROM_SETTINGS",
+  "install": "cd engine && pip3 install -r requirements.txt && cd ../dashboard && npm install",
+  "start": "cd engine && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000",
+  "terminals": [
+    {
+      "name": "engine",
+      "command": "cd engine && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    },
+    {
+      "name": "dashboard",
+      "command": "cd dashboard && npm run dev"
+    }
+  ]
+}
