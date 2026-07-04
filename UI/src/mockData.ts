@@ -5,34 +5,32 @@ import type { ComparisonResult } from './types'
 
 const SWIFT_CODE = `import SwiftUI
 
-struct LoginView: View {
-    @State private var email = ""
-    @State private var password = ""
-    @State private var isLoading = false
+struct DailyGoalsView: View {
+    @State private var waterGlasses = 3
+    @State private var workoutDone = false
+    @State private var progress: Double = 0.38
 
     var body: some View {
         VStack(spacing: 24) {
-            Image("logo")
-                .resizable()
-                .frame(width: 96, height: 96)
-
-            Text("Welcome back")
+            Text("Daily Goals")
                 .font(.custom("SpaceGrotesk-Bold", size: 30))
                 .foregroundColor(Color(hex: "#1A1B4B"))
 
-            VStack(spacing: 12) {
-                TextField("Email", text: $email)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(height: 52)
-                    .autocapitalization(.none)
+            ProgressView(value: progress)
+                .frame(height: 10)
+                .tint(Color(hex: "#4F46E5"))
 
-                SecureField("Password", text: $password)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(height: 52)
+            HStack(spacing: 16) {
+                Text("Water: \\(waterGlasses)/8")
+                    .font(.system(size: 15))
+                Button("-") { if waterGlasses > 0 { waterGlasses -= 1 } }
+                    .frame(width: 44, height: 44)
+                Button("+") { if waterGlasses < 8 { waterGlasses += 1 } }
+                    .frame(width: 44, height: 44)
             }
 
-            Button(action: signIn) {
-                Text("Sign In")
+            Button(action: { workoutDone.toggle() }) {
+                Text(workoutDone ? "Workout complete" : "Complete workout")
                     .font(.system(size: 17, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
@@ -40,31 +38,25 @@ struct LoginView: View {
                     .foregroundColor(.white)
                     .cornerRadius(14)
             }
-            .animation(.easeInOut(duration: 0.30), value: isLoading)
-
-            Button("Forgot password?") {}
-                .font(.system(size: 13))
-                .foregroundColor(Color(hex: "#8A8BB3"))
+            .animation(.easeInOut(duration: 0.30), value: workoutDone)
         }
         .padding(.horizontal, 24)
     }
-
-    private func signIn() {}
 }`
 
 const DART_CODE = `import 'package:flutter/material.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class DailyGoalsScreen extends StatefulWidget {
+  const DailyGoalsScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<DailyGoalsScreen> createState() => _DailyGoalsScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  bool _isLoading = false;
+class _DailyGoalsScreenState extends State<DailyGoalsScreen> {
+  int _waterGlasses = 3;
+  bool _workoutDone = false;
+  double _progress = 0.38;
 
   @override
   Widget build(BuildContext context) {
@@ -74,32 +66,39 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/logo.png', width: 88, height: 88),
-            const SizedBox(height: 24),
             const Text(
-              'Welcome back',
+              'Daily Goals',
               style: TextStyle(
                 fontFamily: 'SpaceGrotesk',
                 fontSize: 26,
+                fontWeight: FontWeight.bold,
                 color: Color(0xFF1A1B4B),
               ),
             ),
             const SizedBox(height: 24),
-            SizedBox(
-              height: 48,
-              child: TextField(
-                controller: _email,
-                decoration: const InputDecoration(hintText: 'Email'),
-              ),
+            LinearProgressIndicator(
+              value: _progress,
+              minHeight: 8,
+              color: const Color(0xFF4F46E5),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 48,
-              child: TextField(
-                controller: _password,
-                obscureText: true,
-                decoration: const InputDecoration(hintText: 'Password'),
-              ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Water: $_waterGlasses/8'),
+                IconButton(
+                  onPressed: () => setState(() {
+                    if (_waterGlasses > 0) _waterGlasses--;
+                  }),
+                  icon: const Icon(Icons.remove),
+                ),
+                IconButton(
+                  onPressed: () => setState(() {
+                    if (_waterGlasses < 8) _waterGlasses++;
+                  }),
+                  icon: const Icon(Icons.add),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             ElevatedButton(
@@ -111,10 +110,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              onPressed: _isLoading ? null : _signIn,
-              child: const Text(
-                'Log in',
-                style: TextStyle(fontSize: 15),
+              onPressed: () => setState(() => _workoutDone = !_workoutDone),
+              child: Text(
+                _workoutDone ? 'Workout complete' : 'Start workout',
+                style: const TextStyle(fontSize: 15),
               ),
             ),
           ],
@@ -122,21 +121,19 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-
-  void _signIn() {}
 }`
 
 export const mockComparison: ComparisonResult = {
   ios: {
     platform: 'ios',
     language: 'swift',
-    fileName: 'LoginView.swift',
+    fileName: 'DailyGoalsView.swift',
     code: SWIFT_CODE,
   },
   android: {
     platform: 'android',
     language: 'dart',
-    fileName: 'login_screen.dart',
+    fileName: 'daily_goals_screen.dart',
     code: DART_CODE,
   },
   inconsistencies: [
@@ -147,7 +144,7 @@ export const mockComparison: ComparisonResult = {
       rule: 'Primary buttons use 16pt vertical padding (button.padding.vertical).',
       expected: '16',
       ios: { value: '20', line: 33 },
-      android: { value: '12', line: 54 },
+      android: { value: '12', line: 62 },
       status: 'open',
     },
     {
@@ -157,7 +154,7 @@ export const mockComparison: ComparisonResult = {
       rule: 'Primary actions use the brand indigo token (color.primary).',
       expected: '#4F46E5',
       ios: { value: '#5A55F2', line: 34 },
-      android: { value: '#4F46E5', line: 53 },
+      android: { value: '#4F46E5', line: 61 },
       status: 'open',
     },
     {
@@ -167,7 +164,7 @@ export const mockComparison: ComparisonResult = {
       rule: 'Buttons are rounded with a 12pt radius (button.cornerRadius).',
       expected: '12',
       ios: { value: '14', line: 36 },
-      android: { value: '8', line: 57 },
+      android: { value: '8', line: 65 },
       status: 'open',
     },
     {
@@ -176,18 +173,18 @@ export const mockComparison: ComparisonResult = {
       severity: 'warning',
       rule: 'Screen headings render at 28pt Space Grotesk (typography.heading.size).',
       expected: '28',
-      ios: { value: '30', line: 15 },
-      android: { value: '26', line: 29 },
+      ios: { value: '30', line: 12 },
+      android: { value: '26', line: 27 },
       status: 'open',
     },
     {
       id: 'inc-005',
-      property: 'Input field height',
+      property: 'Progress bar height',
       severity: 'warning',
-      rule: 'Text inputs are 52pt tall for touch targets (input.height).',
-      expected: '52',
-      ios: { value: '52', line: 21 },
-      android: { value: '48', line: 35 },
+      rule: 'Progress bars are 12pt tall (progress.height).',
+      expected: '12',
+      ios: { value: '10', line: 17 },
+      android: { value: '8', line: 35 },
       status: 'open',
     },
     {
@@ -197,17 +194,17 @@ export const mockComparison: ComparisonResult = {
       rule: 'Interactive state changes animate over 200ms (motion.duration.press).',
       expected: '200ms',
       ios: { value: '300ms', line: 38 },
-      android: { value: '150ms', line: 55 },
+      android: { value: '150ms', line: 63 },
       status: 'open',
     },
     {
       id: 'inc-007',
-      property: 'Sign-in button label',
+      property: 'Workout button label',
       severity: 'info',
-      rule: 'The primary auth action is labelled "Sign In" (copy.signIn.label).',
-      expected: 'Sign In',
-      ios: { value: '"Sign In"', line: 30 },
-      android: { value: "'Log in'", line: 62 },
+      rule: 'The workout action is labelled "Complete workout" (copy.workout.label).',
+      expected: 'Complete workout',
+      ios: { value: '"Complete workout"', line: 30 },
+      android: { value: "'Start workout'", line: 70 },
       status: 'open',
     },
   ],
@@ -216,8 +213,8 @@ export const mockComparison: ComparisonResult = {
     'color.primary': '#4F46E5',
     'button.cornerRadius': '12',
     'typography.heading.size': '28',
-    'input.height': '52',
+    'progress.height': '12',
     'motion.duration.press': '200ms',
-    'copy.signIn.label': 'Sign In',
+    'copy.workout.label': 'Complete workout',
   },
 }

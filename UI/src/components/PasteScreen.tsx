@@ -75,14 +75,14 @@ export default function PasteScreen({
         <div className="flex min-h-0 flex-1 gap-4">
           <Editor
             label="iOS · Swift"
-            hint="LoginView.swift"
+            hint="DailyGoalsView.swift"
             value={iosCode}
             onChange={setIosCode}
             placeholder="Paste your SwiftUI source here…"
           />
           <Editor
             label="Android · Dart"
-            hint="login_screen.dart"
+            hint="daily_goals_screen.dart"
             value={androidCode}
             onChange={setAndroidCode}
             placeholder="Paste your Flutter source here…"

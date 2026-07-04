@@ -1,12 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Left icon rail — presentational chrome that mirrors the reference dashboard.
-// No routing exists yet, so the items just track a local "active" selection.
-// ─────────────────────────────────────────────────────────────────────────────
+export type NavPage = 'overview' | 'comparison' | 'agents' | 'rulebook' | 'alerts'
 
 interface NavItem {
-  id: string
+  id: NavPage
   label: string
   icon: ReactNode
 }
@@ -20,27 +17,34 @@ const ITEMS: NavItem[] = [
     ),
   },
   {
-    id: 'history',
-    label: 'History',
+    id: 'comparison',
+    label: 'Comparison',
     icon: (
       <>
-        <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
-        <path d="M3 9h18M8 3v3M16 3v3" />
+        <rect x="3" y="3" width="7" height="18" rx="1.5" />
+        <rect x="14" y="3" width="7" height="18" rx="1.5" />
       </>
     ),
   },
   {
-    id: 'reports',
-    label: 'Reports',
-    icon: <path d="M5 21V10M12 21V4M19 21v-7" />,
-  },
-  {
-    id: 'settings',
-    label: 'Settings',
+    id: 'agents',
+    label: 'Agents',
     icon: (
       <>
-        <circle cx="12" cy="12" r="3" />
-        <path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" />
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6" />
+        <circle cx="19" cy="7" r="2" opacity="0.6" />
+        <circle cx="5" cy="7" r="2" opacity="0.6" />
+      </>
+    ),
+  },
+  {
+    id: 'rulebook',
+    label: 'Rulebook',
+    icon: (
+      <>
+        <path d="M4 5.5A2 2 0 0 1 6 4h11a2 2 0 0 1 2 2v13a1 1 0 0 1-1.5.86L12 17.5l-5.5 2.36A1 1 0 0 1 5 19V5.5z" />
+        <path d="M8 8h8M8 11.5h5" />
       </>
     ),
   },
@@ -53,12 +57,15 @@ const ITEMS: NavItem[] = [
   },
 ]
 
-export default function NavRail() {
-  const [active, setActive] = useState('overview')
+interface NavRailProps {
+  page: NavPage
+  onNavigate: (page: NavPage) => void
+  alertCount?: number
+}
 
+export default function NavRail({ page, onNavigate, alertCount = 0 }: NavRailProps) {
   return (
     <nav className="flex w-16 shrink-0 flex-col items-center gap-6 py-4">
-      {/* Logo mark */}
       <div className="flex h-9 w-9 items-center justify-center">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
           <path
@@ -72,14 +79,15 @@ export default function NavRail() {
 
       <div className="flex flex-1 flex-col items-center gap-2">
         {ITEMS.map((item) => {
-          const isActive = active === item.id
+          const isActive = page === item.id
           return (
             <button
               key={item.id}
-              onClick={() => setActive(item.id)}
+              onClick={() => onNavigate(item.id)}
               title={item.label}
               aria-label={item.label}
-              className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors ${
+              aria-current={isActive ? 'page' : undefined}
+              className={`relative flex h-11 w-11 items-center justify-center rounded-full transition-colors ${
                 isActive
                   ? 'bg-accent text-accent-contrast'
                   : 'bg-surface text-ink-muted hover:bg-surface-raised hover:text-ink'
@@ -98,12 +106,14 @@ export default function NavRail() {
               >
                 {item.icon}
               </svg>
+              {item.id === 'alerts' && alertCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-severity-error ring-2 ring-surface-deep" />
+              )}
             </button>
           )
         })}
       </div>
 
-      {/* Bottom: logout + avatar */}
       <div className="flex flex-col items-center gap-3">
         <button
           title="Sign out"
@@ -125,7 +135,7 @@ export default function NavRail() {
           </svg>
         </button>
         <div
-          className="h-9 w-9 rounded-full border border-edge-bright bg-surface-raised bg-cover bg-center"
+          className="h-9 w-9 rounded-full border border-edge-bright bg-surface-raised"
           style={{
             backgroundImage:
               'linear-gradient(135deg, #4b72f0 0%, #c4f84b 140%)',
