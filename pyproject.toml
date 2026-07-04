@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unitem"
+version = "0.1.0"
+description = "Cross-platform (iOS/Android) UI consistency analyzer that flags inconsistencies as tickets."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Unitem" }]
+dependencies = [
+    "pydantic>=2.6",
+    "PyYAML>=6.0",
+    "Jinja2>=3.1",
+    "click>=8.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+unitem = "unitem.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["unitem*"]
+
+[tool.setuptools.package-data]
+unitem = ["templates/*.j2", "prompts/*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
