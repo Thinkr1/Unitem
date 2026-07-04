@@ -37,3 +37,9 @@ If several teams describe the pain as recurring and expensive — and would trus
 - *"Style Dictionary translates tokens mechanically but has no judgment about whether a change should cross platforms. We built the reasoning layer that decides."*
 - *"We don't make iOS and Android identical — that would be bad design. We know which changes should cross and which should stay native."*
 - *"A spell-checker for cross-platform UI consistency: it doesn't design for you, it tells you what drifted and how to fix it."*
+
+---
+
+## Related research
+
+For a deeper market / competitive / GTM write-up (migration-playbook wedge, TAM, Skip.dev, 60s pitch script), see [`09-market-analysis-v2.md`](09-market-analysis-v2.md). Useful context for agents and pitch prep — not the core Unitem product spec (`ARCHITECTURE.md` wins on product).
