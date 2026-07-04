@@ -1,7 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import type { Inconsistency, Severity } from './types'
 import { mockComparison } from './mockData'
+import {
+  acceptFinding,
+  analyzePair,
+  fetchComparison,
+  overrideFinding,
+} from './lib/api'
 import ScreenPanel, { type LinePulse } from './components/ScreenPanel'
 import InconsistenciesPanel, {
   type Filter,
@@ -78,22 +84,41 @@ export default function App() {
   const [iosPulse, setIosPulse] = useState<LinePulse | null>(null)
   const [androidPulse, setAndroidPulse] = useState<LinePulse | null>(null)
 
-  const onResolve = (id: string) => {
+  // On load, pull the engine's latest state (tickets from the last `unitem
+  // diff` run + the mapped screens' real source). Falls back to the mock.
+  useEffect(() => {
+    fetchComparison().then((result) => {
+      if (result && result.inconsistencies.length > 0) {
+        setItems(result.inconsistencies)
+        setIosCode(result.ios.code)
+        setAndroidCode(result.android.code)
+        setView('dashboard') // engine has judged tickets — go straight to review
+      }
+    })
+  }, [])
+
+  const onResolve = async (id: string) => {
+    const updated = await acceptFinding(id) // engine applies the fix / opens PR
     setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, status: 'resolved' } : i)),
+      prev.map((i) =>
+        i.id === id ? (updated ?? { ...i, status: 'resolved' }) : i,
+      ),
     )
   }
 
-  const onIgnore = (id: string) => {
+  const onIgnore = async (id: string) => {
+    const updated = await overrideFinding(id, 'hold', 'dismissed from console')
     setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, status: 'ignored' } : i)),
+      prev.map((i) =>
+        i.id === id ? (updated ?? { ...i, status: 'ignored' }) : i,
+      ),
     )
   }
 
   const onResolveAll = () => {
-    setItems((prev) =>
-      prev.map((i) => (i.status === 'open' ? { ...i, status: 'resolved' } : i)),
-    )
+    for (const item of items) {
+      if (item.status === 'open') void onResolve(item.id)
+    }
   }
 
   const onSelect = (item: Inconsistency) => {
@@ -108,11 +133,13 @@ export default function App() {
     setPage('comparison')
   }
 
-  const onAnalyze = (payload: { iosCode: string; androidCode: string }) => {
+  const onAnalyze = async (payload: { iosCode: string; androidCode: string }) => {
     setIosCode(payload.iosCode)
     setAndroidCode(payload.androidCode)
     setPage('comparison')
     setView('dashboard')
+    const result = await analyzePair(payload.iosCode, payload.androidCode)
+    if (result) setItems(result.inconsistencies) // engine-judged verdicts
   }
 
   const active = items.find((i) => i.id === activeId) ?? null

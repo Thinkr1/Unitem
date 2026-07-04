@@ -18,6 +18,7 @@ class RepoConfig(BaseModel):
     remote: str = "origin"
     pr_base_branch: str = "main"
     github_repo: str = "Thinkr1/Unitem"
+    open_prs: bool = False  # demo: agents apply changes live; PRs are a later feature
 
 
 class Config(BaseModel):

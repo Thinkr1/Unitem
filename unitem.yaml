@@ -19,3 +19,4 @@ repo:
   remote: origin
   pr_base_branch: main
   github_repo: Thinkr1/Unitem
+  open_prs: false   # agents apply changes live on disk; flip to true to also open sync/* PRs

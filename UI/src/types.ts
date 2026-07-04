@@ -15,6 +15,8 @@ export interface CodePanel {
   code: string
 }
 
+export type Verdict = 'propagate' | 'hold' | 'flag'
+
 export interface Inconsistency {
   id: string
   /** e.g. "Button padding" */
@@ -22,11 +24,19 @@ export interface Inconsistency {
   severity: Severity
   /** The rulebook rule being violated. */
   rule: string
-  /** Rulebook value, e.g. "16". */
-  expected: string
+  /** Rulebook value, e.g. "16". Absent for propagate/hold findings. */
+  expected?: string | null
   ios: { value: string; line: number }
   android: { value: string; line: number }
   status: Status
+  // ── engine-provided fields (all optional — see ARCHITECTURE-ALIGNMENT.md) ──
+  verdict?: Verdict
+  confidence?: number
+  reason?: string
+  conventionRefs?: string[]
+  originPlatform?: 'ios' | 'android'
+  proposedFix?: { targetPlatform: string; file: string; diff: string } | null
+  prUrl?: string | null
 }
 
 export interface ComparisonResult {

@@ -233,7 +233,7 @@ def apply_and_pr(ticket: Ticket, cfg: Config, runner_name: str | None = None) ->
         ticket.proposed_fix = ProposedFix(
             target_platform=ticket.change.origin_platform, file=str(touched[0]), diff=diff
         )
-    if ticket.verdict == "propagate":
+    if ticket.verdict == "propagate" and cfg.repo.open_prs:
         if runner_name == "mock":
             ticket.pr_url = _CANNED_PR_URL.format(repo=cfg.repo.github_repo)
         else:
