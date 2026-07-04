@@ -1,26 +1,31 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { Inconsistency } from '../types'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LoginPreview renders a mockup of the login screen inside the IDE canvas the
-// platform is actually designed in:
-//   iOS      → Xcode SwiftUI preview canvas
-//   Android  → Android Studio layout preview
+// LoginPreview renders a device mockup styled after the real runtime, not the
+// IDE that authored it:
+//   iOS      → Simulator.app window chrome around an iPhone
+//   Android  → Android Emulator window chrome (title bar + side control
+//              rail) around a Pixel
 //
-// The device inside uses the *actual* design-token values from mockData for
-// each platform, so the two look measurably different and inconsistencies can
-// be seen spatially.  Hard-coded to the login screen, exactly like mockData.
+// Crucially, every on-screen value (button color, padding, radius, heading
+// size, label, even the press-animation speed) is derived live from the
+// `inconsistencies` prop instead of a static per-platform constant. When an
+// agent's fix flips a finding's status to "resolved", both device mockups
+// re-render using the rulebook's `expected` value on the next render — so
+// the two phones visibly converge instead of staying frozen at their
+// original drifted state. A small "N fixes applied" badge and a brief green
+// flash on the affected element make that convergence obvious.
 // ─────────────────────────────────────────────────────────────────────────────
-
-// Daily Goals schematic preview — token values differ per platform so drift
-// is visible spatially. iOS schematic buttons are lightly interactive.
 
 const SEVERITY_RING: Record<string, string> = {
   error: '#f87171',
   warning: '#fbbf24',
   info: '#60a5fa',
 }
+
+const FIXED_COLOR = '#22c55e'
 
 type ElementKey = 'heading' | 'progressBar' | 'counter' | 'workoutButton'
 
@@ -34,27 +39,146 @@ const ELEMENT_MAP: Record<string, ElementKey> = {
   'inc-007': 'workoutButton',
 }
 
-const PLATFORM_VALUES = {
+// The individual design-token findings that drive the Daily Goals schematic,
+// keyed by role rather than by UI region (several share one region, e.g.
+// `workoutButton` covers padding, color, radius, press duration and label).
+const TOKEN_FINDING_IDS = {
+  buttonPadding: 'inc-001',
+  primaryColor: 'inc-002',
+  cornerRadius: 'inc-003',
+  headingSize: 'inc-004',
+  progressHeight: 'inc-005',
+  pressDuration: 'inc-006',
+  buttonLabel: 'inc-007',
+} as const
+
+function findFinding(inconsistencies: Inconsistency[], id: string): Inconsistency | undefined {
+  return inconsistencies.find((i) => i.id === id)
+}
+
+/** The value a platform should currently render: the drifted value while a
+ *  finding is open, or the rulebook's `expected` value once it's resolved. */
+function currentValue(
+  finding: Inconsistency | undefined,
+  platform: 'ios' | 'android',
+  fallback: string,
+): string {
+  if (!finding) return fallback
+  if (finding.status === 'resolved' && finding.expected != null && finding.expected !== '') {
+    return finding.expected
+  }
+  return finding[platform].value
+}
+
+function numeric(value: string): number {
+  const match = value.match(/-?\d+(\.\d+)?/)
+  return match ? Number(match[0]) : 0
+}
+
+function unquote(value: string): string {
+  const trimmed = value.trim()
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1)
+  }
+  return trimmed
+}
+
+interface DailyGoalsTokens {
+  headingSize: number
+  progressHeight: number
+  progress: number
+  buttonColor: string
+  buttonRadius: number
+  buttonPaddingV: number
+  buttonLabel: string
+  pressDurationMs: number
+  device: string
+}
+
+const DAILY_GOALS_FALLBACK: Record<'ios' | 'android', Record<string, string>> = {
   ios: {
-    headingSize: 30,
-    progressHeight: 10,
-    progress: 0.38,
-    buttonColor: '#5A55F2',
-    buttonRadius: 14,
-    buttonPaddingV: 20,
-    buttonLabel: 'Complete workout',
-    device: 'iPhone 15 Pro',
+    padding: '20',
+    color: '#5A55F2',
+    radius: '14',
+    heading: '30',
+    progress: '10',
+    press: '300ms',
+    label: '"Complete workout"',
   },
   android: {
-    headingSize: 26,
-    progressHeight: 8,
-    progress: 0.38,
-    buttonColor: '#4F46E5',
-    buttonRadius: 8,
-    buttonPaddingV: 12,
-    buttonLabel: 'Start workout',
-    device: 'Pixel 7',
+    padding: '12',
+    color: '#4F46E5',
+    radius: '8',
+    heading: '26',
+    progress: '8',
+    press: '150ms',
+    label: "'Start workout'",
   },
+}
+
+function dailyGoalsTokens(
+  platform: 'ios' | 'android',
+  inconsistencies: Inconsistency[],
+): DailyGoalsTokens {
+  const fallback = DAILY_GOALS_FALLBACK[platform]
+  const padding = findFinding(inconsistencies, TOKEN_FINDING_IDS.buttonPadding)
+  const color = findFinding(inconsistencies, TOKEN_FINDING_IDS.primaryColor)
+  const radius = findFinding(inconsistencies, TOKEN_FINDING_IDS.cornerRadius)
+  const heading = findFinding(inconsistencies, TOKEN_FINDING_IDS.headingSize)
+  const progress = findFinding(inconsistencies, TOKEN_FINDING_IDS.progressHeight)
+  const press = findFinding(inconsistencies, TOKEN_FINDING_IDS.pressDuration)
+  const label = findFinding(inconsistencies, TOKEN_FINDING_IDS.buttonLabel)
+
+  return {
+    headingSize: numeric(currentValue(heading, platform, fallback.heading)),
+    progressHeight: numeric(currentValue(progress, platform, fallback.progress)),
+    progress: 0.38,
+    buttonColor: currentValue(color, platform, fallback.color),
+    buttonRadius: numeric(currentValue(radius, platform, fallback.radius)),
+    buttonPaddingV: numeric(currentValue(padding, platform, fallback.padding)),
+    buttonLabel: unquote(currentValue(label, platform, fallback.label)),
+    pressDurationMs: numeric(currentValue(press, platform, fallback.press)),
+    device: platform === 'ios' ? 'iPhone 15 Pro' : 'Pixel 7',
+  }
+}
+
+function fixedCount(inconsistencies: Inconsistency[]): number {
+  return Object.values(TOKEN_FINDING_IDS).filter(
+    (id) => findFinding(inconsistencies, id)?.status === 'resolved',
+  ).length
+}
+
+/** Tracks findings that flip to "resolved" between renders so the matching
+ *  screen element can flash green once, instead of a value silently jumping. */
+function useJustFixed(inconsistencies: Inconsistency[]): Set<string> {
+  const prevStatus = useRef<Record<string, Inconsistency['status']>>({})
+  const [justFixed, setJustFixed] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    const prev = prevStatus.current
+    const newlyFixed: string[] = []
+    for (const inc of inconsistencies) {
+      if (prev[inc.id] && prev[inc.id] !== 'resolved' && inc.status === 'resolved') {
+        newlyFixed.push(inc.id)
+      }
+      prev[inc.id] = inc.status
+    }
+    if (newlyFixed.length === 0) return
+    setJustFixed((set) => new Set([...set, ...newlyFixed]))
+    const timer = window.setTimeout(() => {
+      setJustFixed((set) => {
+        const next = new Set(set)
+        newlyFixed.forEach((id) => next.delete(id))
+        return next
+      })
+    }, 1800)
+    return () => window.clearTimeout(timer)
+  }, [inconsistencies])
+
+  return justFixed
 }
 
 function ringStyle(color: string): CSSProperties {
@@ -65,6 +189,29 @@ function ringStyle(color: string): CSSProperties {
   }
 }
 
+function FixedBadge({ count }: { count: number }) {
+  if (count <= 0) return null
+  return (
+    <div className="mb-3 flex justify-center">
+      <span
+        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-heading"
+        style={{
+          background: 'rgba(34,197,94,0.12)',
+          border: `1px solid ${FIXED_COLOR}55`,
+          color: FIXED_COLOR,
+          fontSize: 9.5,
+          fontWeight: 600,
+        }}
+      >
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        {count} {count === 1 ? 'fix' : 'fixes'} applied
+      </span>
+    </div>
+  )
+}
+
 function loginTokens(
   platform: 'ios' | 'android',
   rulebook: Record<string, string>,
@@ -73,9 +220,11 @@ function loginTokens(
   const brand = inconsistencies.find((i) =>
     i.property.toLowerCase().includes('brand'),
   )
+  const brandFixed = brand?.status === 'resolved' && brand.expected
   return {
-    brandPrimary:
-      platform === 'ios'
+    brandPrimary: brandFixed
+      ? brand.expected!
+      : platform === 'ios'
         ? (brand?.ios.value ?? rulebook['color.brandPrimary'] ?? '#6366F1')
         : (brand?.android.value ?? '#4F46E5'),
     brandInk: rulebook['color.brandInk'] ?? '#1A1B4B',
@@ -201,13 +350,13 @@ function LoginSchematicPreview({
   )
 
   const frame = platform === 'ios' ? (
-    <XcodeCanvas device={t.device} schematic>
+    <SimulatorWindow device={t.device}>
       <IPhoneFrame>{screen}</IPhoneFrame>
-    </XcodeCanvas>
+    </SimulatorWindow>
   ) : (
-    <StudioCanvas device={t.device}>
+    <EmulatorWindow device={t.device}>
       <PixelFrame>{screen}</PixelFrame>
-    </StudioCanvas>
+    </EmulatorWindow>
   )
 
   return frame
@@ -238,9 +387,11 @@ export default function LoginPreview({
   activeInconsistency,
   inconsistencies,
 }: LoginPreviewProps) {
-  const v = PLATFORM_VALUES[platform]
+  const v = dailyGoalsTokens(platform, inconsistencies)
   const [waterGlasses, setWaterGlasses] = useState(3)
   const [workoutDone, setWorkoutDone] = useState(false)
+  const [pressed, setPressed] = useState(false)
+  const justFixed = useJustFixed(inconsistencies)
 
   if (variant === 'login') {
     return (
@@ -269,11 +420,21 @@ export default function LoginPreview({
     }
   }
 
+  const flashingElements = new Set<ElementKey>()
+  for (const id of justFixed) {
+    const el = ELEMENT_MAP[id]
+    if (el) flashingElements.add(el)
+  }
+
   function highlight(key: ElementKey): CSSProperties {
     if (activeElement === key && activeInconsistency) {
       return ringStyle(SEVERITY_RING[activeInconsistency.severity])
     }
     return {}
+  }
+
+  function flashClass(key: ElementKey): string {
+    return flashingElements.has(key) ? 'fixed-flash' : ''
   }
 
   // ── Daily Goals screen (shared between both device frames) ────────────────
@@ -282,8 +443,10 @@ export default function LoginPreview({
       className="flex flex-1 flex-col items-stretch justify-center overflow-hidden px-6 pb-6 pt-3"
       style={{ background: '#ffffff' }}
     >
+      <FixedBadge count={fixedCount(inconsistencies)} />
+
       {/* Heading */}
-      <div className="mb-4 text-center" style={highlight('heading')}>
+      <div className={`mb-4 text-center ${flashClass('heading')}`} style={highlight('heading')}>
         <p
           style={{
             fontSize: v.headingSize * 0.72,
@@ -292,6 +455,7 @@ export default function LoginPreview({
             fontFamily: 'Space Grotesk, sans-serif',
             lineHeight: 1.2,
             margin: 0,
+            transition: 'font-size 220ms ease',
           }}
         >
           Daily Goals
@@ -307,13 +471,14 @@ export default function LoginPreview({
       </div>
 
       {/* Progress bar */}
-      <div className="mb-5" style={highlight('progressBar')}>
+      <div className={`mb-5 ${flashClass('progressBar')}`} style={highlight('progressBar')}>
         <div
           style={{
             height: v.progressHeight * 0.85,
             borderRadius: 6,
             background: '#e8e8ef',
             overflow: 'hidden',
+            transition: 'height 220ms ease',
           }}
         >
           <div
@@ -380,10 +545,13 @@ export default function LoginPreview({
       </div>
 
       {/* Workout button */}
-      <div style={highlight('workoutButton')}>
+      <div className={flashClass('workoutButton')} style={highlight('workoutButton')}>
         <button
           type="button"
           onClick={() => setWorkoutDone((d) => !d)}
+          onMouseDown={() => setPressed(true)}
+          onMouseUp={() => setPressed(false)}
+          onMouseLeave={() => setPressed(false)}
           style={{
             width: '100%',
             background: v.buttonColor,
@@ -392,6 +560,8 @@ export default function LoginPreview({
             paddingBottom: v.buttonPaddingV * 0.5,
             border: 'none',
             cursor: 'pointer',
+            transform: pressed ? 'scale(0.97)' : 'scale(1)',
+            transition: `transform ${v.pressDurationMs}ms ease, background-color ${v.pressDurationMs}ms ease, border-radius 220ms ease, padding 220ms ease`,
           }}
         >
           <span
@@ -438,22 +608,25 @@ export default function LoginPreview({
   )
 
   return platform === 'ios' ? (
-    <XcodeCanvas device={v.device}>
+    <SimulatorWindow device={v.device}>
       <IPhoneFrame>{screen}</IPhoneFrame>
-    </XcodeCanvas>
+    </SimulatorWindow>
   ) : (
-    <StudioCanvas device={v.device}>
+    <EmulatorWindow device={v.device}>
       <PixelFrame>{screen}</PixelFrame>
-    </StudioCanvas>
+    </EmulatorWindow>
   )
 }
 
 // ── Device frames ────────────────────────────────────────────────────────────
+// Hardware buttons sit outside the clipped screen area so they read as small
+// protrusions on the bezel, the way both real hardware and each platform's
+// simulator skin render them.
 
 function IPhoneFrame({ children }: { children: ReactNode }) {
   return (
     <div
-      className="relative flex flex-col overflow-hidden"
+      className="relative flex flex-col"
       style={{
         width: 252,
         height: 500,
@@ -465,6 +638,13 @@ function IPhoneFrame({ children }: { children: ReactNode }) {
         flexShrink: 0,
       }}
     >
+      {/* Silent switch + volume rocker (left edge) */}
+      <span className="absolute" style={{ left: -2, top: 88, width: 3, height: 22, borderRadius: '2px 0 0 2px', background: '#000' }} />
+      <span className="absolute" style={{ left: -2, top: 128, width: 3, height: 42, borderRadius: '2px 0 0 2px', background: '#000' }} />
+      <span className="absolute" style={{ left: -2, top: 178, width: 3, height: 42, borderRadius: '2px 0 0 2px', background: '#000' }} />
+      {/* Power button (right edge) */}
+      <span className="absolute" style={{ right: -2, top: 140, width: 3, height: 70, borderRadius: '0 2px 2px 0', background: '#000' }} />
+
       <div className="relative flex flex-1 flex-col overflow-hidden" style={{ borderRadius: 42, background: '#fff' }}>
         {/* Dynamic Island */}
         <div
@@ -494,7 +674,7 @@ function IPhoneFrame({ children }: { children: ReactNode }) {
 export function PixelFrame({ children }: { children: ReactNode }) {
   return (
     <div
-      className="relative flex flex-col overflow-hidden"
+      className="relative flex flex-col"
       style={{
         width: 252,
         height: 500,
@@ -506,6 +686,10 @@ export function PixelFrame({ children }: { children: ReactNode }) {
         flexShrink: 0,
       }}
     >
+      {/* Volume rocker + power button (right edge, Pixel-style) */}
+      <span className="absolute" style={{ right: -2, top: 116, width: 3, height: 52, borderRadius: '0 2px 2px 0', background: '#000' }} />
+      <span className="absolute" style={{ right: -2, top: 176, width: 3, height: 34, borderRadius: '0 2px 2px 0', background: '#4a7cf6' }} />
+
       <div className="relative flex flex-1 flex-col overflow-hidden" style={{ borderRadius: 26, background: '#fff' }}>
         {/* Punch-hole camera */}
         <div
@@ -583,103 +767,145 @@ export function ScaleToFit({
   )
 }
 
-// ── IDE canvas chrome ──────────────────────────────────────────────────────────
+// ── Simulator / emulator window chrome ──────────────────────────────────────
+// These wrap the device frames to look like the actual runtime window each
+// platform's tooling opens — Simulator.app on macOS, the Android Emulator
+// window elsewhere — rather than an IDE's design-canvas panel.
 
-function XcodeCanvas({
-  device,
-  children,
-  schematic = false,
-}: {
-  device: string
-  children: ReactNode
-  schematic?: boolean
-}) {
+function TrafficLights() {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ background: '#2b2b2e' }}>
-      {/* Canvas toolbar */}
-      <div
-        className="flex shrink-0 items-center justify-between px-3"
-        style={{ height: 30, background: '#323236', borderBottom: '1px solid rgba(0,0,0,0.35)' }}
-      >
-        <div className="flex items-center gap-1.5">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="#147efb" aria-hidden>
-            <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-2 6l7 4-7 4V8z" />
-          </svg>
-          <span style={{ fontSize: 10.5, color: '#c7c7cc', fontFamily: 'ui-sans-serif, system-ui' }}>
-            {schematic ? 'Schematic preview' : 'Preview'}
-          </span>
-        </div>
-        <span style={{ fontSize: 10, color: '#8e8e93', fontFamily: 'ui-monospace, monospace' }}>
-          {schematic ? 'SwiftUI mock' : 'Xcode'}
-        </span>
-      </div>
-
-      {/* Canvas surface */}
-      <ScaleToFit width={252} height={500}>
-        {children}
-      </ScaleToFit>
-
-      {/* Bottom preview control bar */}
-      <div
-        className="flex shrink-0 items-center justify-center gap-2 px-3"
-        style={{ height: 34, background: '#323236', borderTop: '1px solid rgba(0,0,0,0.35)' }}
-      >
-        <div
-          className="flex items-center gap-1.5 rounded px-2 py-0.5"
-          style={{ background: '#3f3f44' }}
-        >
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="#147efb" aria-hidden>
-            <path d="M8 5v14l11-7z" />
-          </svg>
-          <span style={{ fontSize: 10, color: '#e5e5ea', fontFamily: 'ui-sans-serif, system-ui' }}>
-            {device}
-          </span>
-        </div>
-        <span style={{ fontSize: 9.5, color: '#8e8e93' }}>Selectable</span>
-      </div>
+    <div className="flex items-center gap-[6px]" aria-hidden>
+      <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#ff5f57' }} />
+      <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#febc2e' }} />
+      <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#28c840' }} />
     </div>
   )
 }
 
-export function StudioCanvas({ device, children }: { device: string; children: ReactNode }) {
+export function SimulatorWindow({ device, children }: { device: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ background: '#3c3f41' }}>
-      {/* Design surface toolbar */}
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ background: '#1e1e1e' }}>
+      {/* macOS-style window titlebar, matching Simulator.app */}
       <div
-        className="flex shrink-0 items-center justify-between px-3"
-        style={{ height: 30, background: '#4b4f52', borderBottom: '1px solid rgba(0,0,0,0.35)' }}
+        className="relative flex shrink-0 items-center justify-center px-3"
+        style={{ height: 30, background: 'linear-gradient(180deg,#3d3d3f,#323234)', borderBottom: '1px solid rgba(0,0,0,0.5)' }}
       >
-        <div className="flex items-center gap-2">
-          {/* Design | Blueprint segmented look */}
-          <div className="flex items-center overflow-hidden rounded" style={{ border: '1px solid #5c6063' }}>
-            <span style={{ fontSize: 9.5, color: '#e6e6e6', background: '#5c6063', padding: '1px 6px' }}>
-              Design
-            </span>
-            <span style={{ fontSize: 9.5, color: '#a8adb2', padding: '1px 6px' }}>Blueprint</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: '#3ddc84', display: 'inline-block' }} />
-            <span style={{ fontSize: 10, color: '#c9ccd0', fontFamily: 'ui-sans-serif, system-ui' }}>
-              {device}
-            </span>
-          </div>
-        </div>
-        <span style={{ fontSize: 10, color: '#9aa0a6' }}>Android Studio</span>
+        <div className="absolute left-3"><TrafficLights /></div>
+        <span style={{ fontSize: 11, fontWeight: 500, color: '#d8d8dc', fontFamily: 'ui-sans-serif, system-ui' }}>
+          {device}
+        </span>
       </div>
 
-      {/* Design surface */}
       <ScaleToFit width={252} height={500}>
         {children}
       </ScaleToFit>
+    </div>
+  )
+}
 
-      {/* Bottom zoom controls */}
+function EmulatorControlRail() {
+  const controls: { title: string; icon: ReactNode }[] = [
+    {
+      title: 'Power',
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+          <line x1="12" y1="2" x2="12" y2="12" />
+        </svg>
+      ),
+    },
+    {
+      title: 'Volume up',
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M11 5 6 9H2v6h4l5 4V5z" />
+          <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+          <path d="M19 5a10 10 0 0 1 0 14" />
+        </svg>
+      ),
+    },
+    {
+      title: 'Volume down',
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M11 5 6 9H2v6h4l5 4V5z" />
+          <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+        </svg>
+      ),
+    },
+    {
+      title: 'Rotate',
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M23 4v6h-6" />
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+        </svg>
+      ),
+    },
+    {
+      title: 'Screenshot',
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+          <circle cx="12" cy="13" r="4" />
+        </svg>
+      ),
+    },
+    {
+      title: 'More',
+      icon: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="5" r="1.6" />
+          <circle cx="12" cy="12" r="1.6" />
+          <circle cx="12" cy="19" r="1.6" />
+        </svg>
+      ),
+    },
+  ]
+
+  return (
+    <div
+      className="flex w-9 shrink-0 flex-col items-center gap-3 border-l py-3"
+      style={{ borderColor: 'rgba(255,255,255,0.08)', background: '#26272a' }}
+    >
+      {controls.map((c) => (
+        <span
+          key={c.title}
+          title={c.title}
+          className="flex h-6 w-6 items-center justify-center rounded"
+          style={{ color: '#9aa0a6' }}
+        >
+          {c.icon}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+export function EmulatorWindow({ device, children }: { device: string; children: ReactNode }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ background: '#202124' }}>
+      {/* Generic (cross-platform) window titlebar, matching the standalone
+          Android Emulator window — not the Android Studio layout editor. */}
       <div
-        className="flex shrink-0 items-center justify-end gap-2 px-3"
-        style={{ height: 30, background: '#4b4f52', borderTop: '1px solid rgba(0,0,0,0.35)' }}
+        className="relative flex shrink-0 items-center justify-center px-3"
+        style={{ height: 30, background: '#292a2d', borderBottom: '1px solid rgba(0,0,0,0.5)' }}
       >
-        <span style={{ fontSize: 12, color: '#9aa0a6', lineHeight: 1 }}>−</span>
-        <span style={{ fontSize: 9.5, color: '#c9ccd0' }}>100%</span>
-        <span style={{ fontSize: 12, color: '#9aa0a6', lineHeight: 1 }}>+</span>
+        <div className="absolute left-3 flex items-center gap-[5px]" aria-hidden>
+          <span style={{ width: 9, height: 9, borderRadius: 2, background: 'rgba(255,255,255,0.16)' }} />
+          <span style={{ width: 9, height: 9, borderRadius: 2, background: 'rgba(255,255,255,0.16)' }} />
+          <span style={{ width: 9, height: 9, borderRadius: 2, background: 'rgba(255,255,255,0.28)' }} />
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 500, color: '#d8d8dc', fontFamily: 'ui-sans-serif, system-ui' }}>
+          {device} <span style={{ color: '#7a7c80' }}>— Android Emulator</span>
+        </span>
+      </div>
+
+      <div className="flex min-h-0 flex-1">
+        <ScaleToFit width={252} height={500}>
+          {children}
+        </ScaleToFit>
+        <EmulatorControlRail />
       </div>
     </div>
   )

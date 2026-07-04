@@ -11,6 +11,12 @@ import type {
 // into, not a picture of one. "Boot" always tries to bring that native window
 // to the front and reports plainly whether it succeeded.
 //
+// This is distinct from the "Visual" tab (LoginPreview), which now *looks*
+// like a Simulator/Emulator window too but is a data-driven schematic mockup
+// that reacts instantly to resolved findings — no real OS or hardware
+// required. Use "Visual" to see a fix land; use this tab to drive the actual
+// simulator/emulator.
+//
 // The in-app screenshot mirror below is a secondary, opt-in convenience (e.g.
 // for glancing at state without alt-tabbing) — it is a *read-only, ~1fps
 // picture*, explicitly labeled as such so it's never mistaken for "the

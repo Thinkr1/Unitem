@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CodePanel as CodePanelData, Inconsistency, Severity } from '../types'
 import { highlightLine } from '../lib/highlight'
 import LoginPreview from './LoginPreview'
-import FlutterPreview from './FlutterPreview'
 import SimulatorPreview from './SimulatorPreview'
 
 export interface LinePulse {
@@ -103,21 +102,13 @@ export default function ScreenPanel({
       </header>
 
       {view === 'visual' ? (
-        panel.platform === 'android' ? (
-          <FlutterPreview
-            code={panel.previewCode ?? panel.code}
-            device="Pixel 7"
-            rulebook={rulebook}
-          />
-        ) : (
-          <LoginPreview
-            platform={panel.platform}
-            variant={previewVariant}
-            rulebook={rulebook}
-            activeInconsistency={activeInconsistency}
-            inconsistencies={inconsistencies}
-          />
-        )
+        <LoginPreview
+          platform={panel.platform}
+          variant={previewVariant}
+          rulebook={rulebook}
+          activeInconsistency={activeInconsistency}
+          inconsistencies={inconsistencies}
+        />
       ) : view === 'simulator' ? (
         <SimulatorPreview platform={panel.platform} />
       ) : (
