@@ -18,7 +18,10 @@ response can never leave the Flutter app broken.
 """
 from __future__ import annotations
 
+import json
 import re
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -39,6 +42,26 @@ _HEX_RE = re.compile(r"^[0-9A-Fa-f]{6}$")
 # Pinned versions for packages the writer commonly needs; anything else gets
 # `any` (the demo never runs `pub get`; DartPad resolves its own bundle).
 _KNOWN_DEP_VERSIONS = {"google_fonts": "^6.2.1"}
+
+# The UI's Android panel renders through DartPad, which bundles a fixed set of
+# packages. Anything outside this set compiles locally but breaks the preview.
+_DARTPAD_PACKAGES = {
+    "google_fonts",
+    "http",
+    "provider",
+    "shared_preferences",
+    "collection",
+    "intl",
+    "vector_math",
+    "characters",
+    "flutter_riverpod",
+    "flutter_bloc",
+    "bloc",
+    "url_launcher",
+}
+
+_COMPILE_API = "https://stable.api.dartpad.dev/api/v3/compileDDC"
+_PACKAGE_IMPORT_RE = re.compile(r"import\s+'package:([a-z0-9_]+)/")
 
 OnStage = Callable[[str, str], None]
 
@@ -178,6 +201,19 @@ def verify_output(
         if not _DEP_NAME_RE.match(dep):
             hard.append(f"invalid pub package name: {dep}")
 
+    # every package import must be declared AND previewable in DartPad
+    for gen in output.files:
+        for pkg in _PACKAGE_IMPORT_RE.findall(gen.content):
+            if pkg == "flutter":
+                continue
+            if pkg not in output.dependencies:
+                hard.append(f"{gen.path} imports package:{pkg} but does not declare it in dependencies")
+            elif pkg not in _DARTPAD_PACKAGES:
+                hard.append(
+                    f"{gen.path} imports package:{pkg}, which DartPad does not bundle — "
+                    f"the preview cannot render it; use only: {', '.join(sorted(_DARTPAD_PACKAGES))}"
+                )
+
     combined_upper = combined.upper()
     for name, value in spec.colors.items():
         hex_value = str(value).lstrip("#").upper()
@@ -190,6 +226,57 @@ def verify_output(
             soft.append(f"spec font family {family} does not appear in the generated code")
 
     return hard, soft
+
+
+# ── render-readiness (the preview is DartPad; prove the code compiles) ──────
+
+
+def preview_compile_source(output: TransferOutput, screen_rel: str) -> str | None:
+    """Rebuild exactly what the UI ships to DartPad: the screen with local
+    imports inlined, assets swapped, and a main() harness appended."""
+    files = {f.path: f.content for f in output.files}
+    source = files.get(screen_rel)
+    if source is None:
+        return None
+    for rel, body in files.items():
+        if rel == screen_rel:
+            continue
+        name = rel.rsplit("/", 1)[-1]
+        import_re = re.compile(rf"import\s+'{re.escape(name)}';\n?")
+        if import_re.search(source):
+            body = re.sub(r"import\s+'package:flutter/[^']+';\n?", "", body)
+            source = import_re.sub("", source)
+            source = source.rstrip() + "\n\n// ── inlined for preview ──\n" + body.strip() + "\n"
+    source = re.sub(r"Image\.asset\([^)]*\)", "const FlutterLogo(size: 96)", source)
+    if not re.search(r"\bvoid\s+main\s*\(", source):
+        widget = _WIDGET_CLASS_RE.search(source)
+        home = f"{widget.group(1)}()" if widget else "const SizedBox()"
+        source += (
+            "\n\nvoid main() => runApp(MaterialApp("
+            f"debugShowCheckedModeBanner: false, home: {home}));\n"
+        )
+    return source
+
+
+def dartpad_compile_error(source: str, timeout: int = 150) -> str | None:
+    """Compile through DartPad's own compiler. None = compiles clean;
+    '__offline__' = service unreachable; anything else = compiler output."""
+    body = json.dumps({"source": source}).encode()
+    req = urllib.request.Request(
+        _COMPILE_API, data=body, headers={"content-type": "application/json"}, method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            json.load(res)
+        return None
+    except urllib.error.HTTPError as err:
+        try:
+            detail = json.loads(err.read().decode()).get("message", "")
+        except Exception:
+            detail = ""
+        return (detail or f"HTTP {err.code}").strip()[:800]
+    except Exception:
+        return "__offline__"
 
 
 # ── apply ────────────────────────────────────────────────────────────────────
@@ -279,6 +366,18 @@ def run_transfer(
             return TransferResult(ok=False, error=f"writer agent failed: {err}", attempts=attempts)
         stage("review", "verifying the transferred design against the spec")
         hard, soft = verify_output(cfg, spec, output, files)
+        # render-readiness: compile the exact preview source through DartPad's
+        # compiler so the writer's code is proven renderable before it lands.
+        # (skipped under the mock runner to keep offline replay hermetic)
+        if not hard and runner.name != "mock":
+            stage("review", "compiling the preview through DartPad to prove it renders")
+            source = preview_compile_source(output, _rel(cfg, files["flutter_screen"]))
+            compile_err = dartpad_compile_error(source) if source else "no screen file in output"
+            if compile_err == "__offline__":
+                soft.append("DartPad compile check skipped: compiler service unreachable")
+                compile_err = None
+            if compile_err:
+                hard.append(f"the preview does not compile in DartPad:\n{compile_err}")
         failures = hard + soft
         if not failures:
             break

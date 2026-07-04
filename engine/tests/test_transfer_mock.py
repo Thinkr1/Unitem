@@ -63,6 +63,60 @@ def test_transfer_mock_end_to_end(tmp_path):
     assert (cfg.android_root / "pubspec.yaml").read_text().count("google_fonts:") == 1
 
 
+def test_verify_flags_undeclared_and_unpreviewable_packages(tmp_path):
+    from unitem.schema import DesignSpec, GeneratedFile, TransferOutput
+    from unitem.transfer import verify_output
+
+    cfg = _cfg(tmp_path)
+    files = resolve_screen_files(cfg, "login")
+    spec = DesignSpec(colors={}, fonts=[])
+    output = TransferOutput(
+        files=[
+            GeneratedFile(
+                path="lib/login_screen.dart",
+                content=(
+                    "import 'package:google_fonts/google_fonts.dart';\n"
+                    "import 'package:lottie/lottie.dart';\n"
+                    "class LoginScreen extends StatelessWidget {}\n"
+                ),
+            )
+        ],
+        dependencies=["lottie"],
+    )
+    hard, _ = verify_output(cfg, spec, output, files)
+    assert any("google_fonts" in h and "does not declare" in h for h in hard)
+    assert any("lottie" in h and "DartPad" in h for h in hard)
+
+
+def test_preview_compile_source_builds_a_runnable_harness():
+    from unitem.schema import GeneratedFile, TransferOutput
+    from unitem.transfer import preview_compile_source
+
+    output = TransferOutput(
+        files=[
+            GeneratedFile(
+                path="lib/login_screen.dart",
+                content=(
+                    "import 'package:flutter/material.dart';\n\nimport 'theme.dart';\n\n"
+                    "class LoginScreen extends StatelessWidget {\n"
+                    "  Widget build(c) => Image.asset('assets/logo.png');\n}\n"
+                ),
+            ),
+            GeneratedFile(
+                path="lib/theme.dart",
+                content="import 'package:flutter/material.dart';\nclass AppTheme {}\n",
+            ),
+        ]
+    )
+    source = preview_compile_source(output, "lib/login_screen.dart")
+    assert source is not None
+    assert "import 'theme.dart';" not in source  # inlined
+    assert "class AppTheme {}" in source
+    assert "FlutterLogo" in source and "Image.asset" not in source
+    assert "void main() => runApp(MaterialApp(" in source
+    assert "home: LoginScreen()" in source
+
+
 def test_resolve_screen_files_finds_the_demo_pair(tmp_path):
     cfg = _cfg(tmp_path)
     files = resolve_screen_files(cfg, "login")

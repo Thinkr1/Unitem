@@ -87,6 +87,8 @@ export default function App() {
   const [rescanNonce, setRescanNonce] = useState(0)
   const [rescanning, setRescanning] = useState(false)
   const [transferring, setTransferring] = useState(false)
+  // null = not yet checked; false = engine unreachable (mock/sample data shown)
+  const [engineLive, setEngineLive] = useState<boolean | null>(null)
 
   const [items, setItems] = useState<Inconsistency[]>(
     mockComparison.inconsistencies,
@@ -109,6 +111,7 @@ export default function App() {
 
   const refreshFromEngine = async () => {
     const result = await fetchComparison(screenName)
+    setEngineLive(result !== null)
     if (result) applyComparison(result)
   }
 
@@ -116,6 +119,7 @@ export default function App() {
   // diff` run + the mapped screens' real source). Falls back to the mock.
   useEffect(() => {
     fetchComparison().then((result) => {
+      setEngineLive(result !== null)
       if (result && result.inconsistencies.length > 0) {
         applyComparison(result)
         setView('dashboard') // engine has judged tickets — go straight to review
@@ -127,6 +131,7 @@ export default function App() {
   const onRescan = async () => {
     setRescanning(true)
     const result = await rescan(screenName)
+    setEngineLive(result !== null)
     if (result) applyComparison(result)
     setRescanning(false)
     setRescanNonce((n) => n + 1) // remount the preview so it recompiles
@@ -160,6 +165,7 @@ export default function App() {
     setTransferring(true)
     try {
       const result = await transferDesign(screenName)
+      setEngineLive(result !== null)
       if (result) {
         applyComparison(result)
       } else {
@@ -236,6 +242,15 @@ export default function App() {
         </div>
 
         <div className="ml-auto flex items-center gap-3">
+          {engineLive === false && (
+            <span
+              title="The unitem engine on :8787 is unreachable — panels show bundled sample data, not your repo. Run `unitem serve` and reload."
+              className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 font-heading text-[11px] font-semibold text-amber-400"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              Engine offline — sample data
+            </span>
+          )}
           <button
             onClick={() => setView('paste')}
             className="rounded-full bg-surface px-3.5 py-2 font-heading text-[12px] font-medium text-ink-muted transition-colors hover:text-ink"
