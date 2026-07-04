@@ -22,6 +22,13 @@ export interface CodePanel {
 
 export type Verdict = 'propagate' | 'hold' | 'flag'
 
+export interface ProposedFix {
+  targetPlatform: 'ios' | 'android'
+  file: string
+  /** Unified diff text (`difflib.unified_diff` on the backend), rendered PR-style. */
+  diff: string
+}
+
 export interface Inconsistency {
   id: string
   /** e.g. "Button padding" */
@@ -40,7 +47,7 @@ export interface Inconsistency {
   reason?: string
   conventionRefs?: string[]
   originPlatform?: 'ios' | 'android'
-  proposedFix?: { targetPlatform: string; file: string; diff: string } | null
+  proposedFix?: ProposedFix | null
   prUrl?: string | null
 }
 

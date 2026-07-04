@@ -123,6 +123,36 @@ class _DailyGoalsScreenState extends State<DailyGoalsScreen> {
   }
 }`
 
+const PRIMARY_COLOR_PROPAGATE_DIFF = `--- a/design-tokens/tokens.json
++++ b/design-tokens/tokens.json
+@@ -2,6 +2,6 @@
+   "color": {
+     "primary": {
+-      "value": "#5A55F2"
++      "value": "#4F46E5"
+     },
+     "textSecondary": {
+       "value": "#8A8BB3"
+--- a/sample-ios/Sources/Theme.swift
++++ b/sample-ios/Sources/Theme.swift
+@@ -1,4 +1,4 @@
+ enum Theme {
+-    static let brandPrimary = Color(hex: "#5A55F2")
++    static let brandPrimary = Color(hex: "#4F46E5")
+     static let textSecondary = Color(hex: "#8A8BB3")
+ }
+`
+
+const BUTTON_PADDING_FLAG_DIFF = `--- a/DailyGoalsView.swift
++++ b/DailyGoalsView.swift
+@@ -34,4 +34,4 @@
+                     .frame(maxWidth: .infinity)
+-                    .padding(.vertical, 20)
++                    .padding(.vertical, 16)
+                     .background(Color(hex: "#5A55F2"))
+                     .foregroundColor(.white)
+`
+
 export const mockComparison: ComparisonResult = {
   ios: {
     platform: 'ios',
@@ -146,16 +176,36 @@ export const mockComparison: ComparisonResult = {
       ios: { value: '20', line: 33 },
       android: { value: '12', line: 62 },
       status: 'open',
+      verdict: 'flag',
+      confidence: 0.94,
+      reason: 'Both platforms drifted from the 16pt vertical-padding token — fix both.',
+      conventionRefs: ['button.padding.vertical'],
+      proposedFix: {
+        targetPlatform: 'ios',
+        file: 'DailyGoalsView.swift',
+        diff: BUTTON_PADDING_FLAG_DIFF,
+      },
     },
     {
       id: 'inc-002',
       property: 'Primary color',
       severity: 'error',
       rule: 'Primary actions use the brand indigo token (color.primary).',
-      expected: '#4F46E5',
-      ios: { value: '#5A55F2', line: 34 },
+      ios: { value: '#5A55F2', line: 37 },
       android: { value: '#4F46E5', line: 61 },
       status: 'open',
+      verdict: 'propagate',
+      confidence: 0.88,
+      reason:
+        'Design updated the primary brand color to #4F46E5. Android already has it — propagate the token change to iOS.',
+      conventionRefs: ['color.primary'],
+      originPlatform: 'android',
+      proposedFix: {
+        targetPlatform: 'ios',
+        file: 'sample-ios/Sources/Theme.swift',
+        diff: PRIMARY_COLOR_PROPAGATE_DIFF,
+      },
+      prUrl: 'https://github.com/Thinkr1/Unitem/pull/999',
     },
     {
       id: 'inc-003',
