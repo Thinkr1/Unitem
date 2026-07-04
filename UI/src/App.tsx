@@ -18,6 +18,9 @@ import OverviewPage from './components/OverviewPage'
 import AgentsPage from './components/AgentsPage'
 import RulebookPage from './components/RulebookPage'
 import AlertsPage from './components/AlertsPage'
+import TasksPage from './components/TasksPage'
+import type { TaskQueue } from './lib/taskQueue'
+import { readyCount } from './lib/taskQueue'
 
 const SEVERITY_RANK: Record<Severity, number> = { error: 3, warning: 2, info: 1 }
 
@@ -41,6 +44,10 @@ const PAGE_META: Record<NavPage, { title: string; subtitle: string }> = {
   alerts: {
     title: 'Alerts',
     subtitle: 'Open inconsistencies needing attention',
+  },
+  tasks: {
+    title: 'Tasks',
+    subtitle: 'GitHub-backed queue — add, split, run later',
   },
 }
 
@@ -83,6 +90,16 @@ export default function App() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [iosPulse, setIosPulse] = useState<LinePulse | null>(null)
   const [androidPulse, setAndroidPulse] = useState<LinePulse | null>(null)
+  const [taskReady, setTaskReady] = useState(0)
+
+  useEffect(() => {
+    fetch('/tasks/queue.json')
+      .then((res) => (res.ok ? (res.json() as Promise<TaskQueue>) : null))
+      .then((data) => {
+        if (data) setTaskReady(readyCount(data.tasks))
+      })
+      .catch(() => {})
+  }, [page])
 
   // On load, pull the engine's latest state (tickets from the last `unitem
   // diff` run + the mapped screens' real source). Falls back to the mock.
@@ -232,6 +249,7 @@ export default function App() {
           page={page}
           onNavigate={setPage}
           alertCount={openErrors}
+          taskReadyCount={taskReady}
         />
 
         {page === 'comparison' ? (
@@ -283,6 +301,8 @@ export default function App() {
           <AgentsPage />
         ) : page === 'rulebook' ? (
           <RulebookPage rulebook={mockComparison.rulebook} items={items} />
+        ) : page === 'tasks' ? (
+          <TasksPage />
         ) : (
           <AlertsPage
             items={items}

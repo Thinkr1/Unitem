@@ -1,0 +1,42 @@
+version: 1
+updated_at: '2026-07-04T16:40:00Z'
+tasks:
+- id: task-001
+  title: Verdict-aware inconsistency cards
+  description: Update InconsistencyCard to render propagate / hold / flag variants and add matching mock
+    examples per UI/ARCHITECTURE-ALIGNMENT.md.
+  status: pending
+  priority: normal
+  created_at: '2026-07-04T16:40:00Z'
+  created_by: team
+  labels:
+  - ui
+  - stretch
+  threads:
+  - id: task-001-a
+    title: Add propagate and hold examples to mockData
+    status: pending
+    run_after: []
+  - id: task-001-b
+    title: Update InconsistencyCard for three verdict variants
+    status: pending
+    run_after:
+    - task-001-a
+  run:
+    agent: orchestrator
+    branch_prefix: cursor/
+- id: task-002
+  title: Render PR links on accepted findings
+  description: Surface prUrl from the engine on resolved propagate findings in the comparison and alerts
+    views.
+  status: pending
+  priority: low
+  created_at: '2026-07-04T16:40:00Z'
+  created_by: team
+  labels:
+  - ui
+  - github
+  threads: []
+  run:
+    agent: orchestrator
+    branch_prefix: cursor/

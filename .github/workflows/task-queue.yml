@@ -1,0 +1,131 @@
+name: Task queue
+
+on:
+  push:
+    paths:
+      - tasks/queue.yaml
+      - scripts/task_queue.py
+  pull_request:
+    paths:
+      - tasks/queue.yaml
+      - scripts/task_queue.py
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Action to perform
+        required: true
+        type: choice
+        options:
+          - add
+          - split
+          - ready
+          - done
+      title:
+        description: Task title (for add/split)
+        required: false
+        type: string
+      task_id:
+        description: Task or thread id (for split/ready/done)
+        required: false
+        type: string
+      parent_id:
+        description: Parent task id when splitting
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  validate:
+    if: github.event_name != 'issue_comment'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyyaml
+      - run: python3 scripts/task_queue.py validate
+
+  apply-comment:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request == null &&
+      startsWith(github.event.comment.body, '/task')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyyaml
+      - name: Apply /task comment
+        env:
+          COMMENT: ${{ github.event.comment.body }}
+          AUTHOR: ${{ github.event.comment.user.login }}
+        run: |
+          python3 scripts/task_queue.py from-comment "$COMMENT" --author "$AUTHOR"
+          python3 scripts/task_queue.py export-json
+      - name: Commit and push queue update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tasks/queue.yaml UI/public/tasks/queue.json
+          if git diff --staged --quiet; then
+            echo "No queue changes to commit."
+            exit 0
+          fi
+          git commit -m "task-queue: update from issue #${{ github.event.issue.number }} comment"
+          git push
+      - name: Acknowledge on issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '✅ Task queue updated in `tasks/queue.yaml`. Run `python3 scripts/task_queue.py list` on latest main to see changes.'
+            })
+
+  apply-dispatch:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyyaml
+      - name: Apply workflow_dispatch input
+        run: |
+          case "${{ inputs.action }}" in
+            add)
+              python3 scripts/task_queue.py add "${{ inputs.title }}" --by "workflow_dispatch"
+              ;;
+            split)
+              python3 scripts/task_queue.py split "${{ inputs.parent_id }}" "${{ inputs.title }}"
+              ;;
+            ready)
+              python3 scripts/task_queue.py ready "${{ inputs.task_id }}"
+              ;;
+            done)
+              python3 scripts/task_queue.py done "${{ inputs.task_id }}"
+              ;;
+          esac
+          python3 scripts/task_queue.py export-json
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tasks/queue.yaml UI/public/tasks/queue.json
+          git commit -m "task-queue: ${{ inputs.action }} via workflow_dispatch"
+          git push

@@ -1,0 +1,42 @@
+name: Task
+description: Add a work item to the collaborative task queue (auto-committed)
+title: "[Task] "
+labels:
+  - task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tasks land in `tasks/queue.yaml` and can be split into sub-threads.
+        After merge, comment `/task ready <id>` to queue for a Cloud Agent run.
+  - type: input
+    id: title
+    attributes:
+      label: Task title
+      placeholder: e.g. Add override verdict popover
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What should be done? Link specs or files if helpful.
+    validations:
+      required: false
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - low
+        - normal
+        - high
+    validations:
+      required: true
+  - type: input
+    id: labels
+    attributes:
+      label: Labels (comma-separated)
+      placeholder: ui, engine, github
+    validations:
+      required: false

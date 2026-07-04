@@ -27,6 +27,7 @@ Read them in order. They are self-contained — you should not need the original
 | `06-convention-knowledge-base.md` | The "secret sauce" — seed rules for propagate/hold/flag (start here for engine work) |
 | `07-venture-brief.md` | Business framing + validation questions (for the pitch) |
 | `09-live-flow-side-doc.md` | Live Mermaid side doc for pipeline flow, agent handoffs, lag watch points, and focus prompts |
+| `10-github-task-queue.md` | Collaborative git-backed todo list — add tasks, sub-threads, run via Cloud Agents |
 
 ---
 
