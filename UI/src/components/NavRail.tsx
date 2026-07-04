@@ -63,6 +63,17 @@ interface NavRailProps {
   alertCount?: number
 }
 
+function NavTooltip({ label }: { label: string }) {
+  return (
+    <span
+      role="tooltip"
+      className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-lg bg-surface-raised px-2.5 py-1.5 font-heading text-[11px] font-medium text-ink opacity-0 shadow-lg ring-1 ring-edge-bright transition-opacity duration-150 group-hover:opacity-100"
+    >
+      {label}
+    </span>
+  )
+}
+
 export default function NavRail({ page, onNavigate, alertCount = 0 }: NavRailProps) {
   return (
     <nav className="flex w-16 shrink-0 flex-col items-center gap-6 py-4">
@@ -81,10 +92,9 @@ export default function NavRail({ page, onNavigate, alertCount = 0 }: NavRailPro
         {ITEMS.map((item) => {
           const isActive = page === item.id
           return (
+            <div key={item.id} className="group relative">
             <button
-              key={item.id}
               onClick={() => onNavigate(item.id)}
-              title={item.label}
               aria-label={item.label}
               aria-current={isActive ? 'page' : undefined}
               className={`relative flex h-11 w-11 items-center justify-center rounded-full transition-colors ${
@@ -110,13 +120,15 @@ export default function NavRail({ page, onNavigate, alertCount = 0 }: NavRailPro
                 <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-severity-error ring-2 ring-surface-deep" />
               )}
             </button>
+            <NavTooltip label={item.label} />
+            </div>
           )
         })}
       </div>
 
       <div className="flex flex-col items-center gap-3">
+        <div className="group relative">
         <button
-          title="Sign out"
           aria-label="Sign out"
           className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
         >
@@ -134,6 +146,8 @@ export default function NavRail({ page, onNavigate, alertCount = 0 }: NavRailPro
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
           </svg>
         </button>
+        <NavTooltip label="Sign out" />
+        </div>
         <div
           className="h-9 w-9 rounded-full border border-edge-bright bg-surface-raised"
           style={{

@@ -16,9 +16,10 @@ type Status = 'loading' | 'ready' | 'error'
 interface FlutterPreviewProps {
   code: string
   device: string
+  rulebook?: Record<string, string>
 }
 
-export default function FlutterPreview({ code, device }: FlutterPreviewProps) {
+export default function FlutterPreview({ code, device, rulebook = {} }: FlutterPreviewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const loadedRef = useRef(false)
   const [status, setStatus] = useState<Status>('loading')
@@ -27,7 +28,7 @@ export default function FlutterPreview({ code, device }: FlutterPreviewProps) {
     const iframe = iframeRef.current
     if (!iframe) return
 
-    const wrapped = wrapDartForPreview(code)
+    const wrapped = wrapDartForPreview(code, rulebook)
 
     const post = () => {
       iframe.contentWindow?.postMessage(
@@ -72,12 +73,12 @@ export default function FlutterPreview({ code, device }: FlutterPreviewProps) {
       window.clearTimeout(reveal)
       window.clearTimeout(failsafe)
     }
-  }, [code])
+  }, [code, rulebook])
 
   const handleLoad = () => {
     loadedRef.current = true
     iframeRef.current?.contentWindow?.postMessage(
-      { sourceCode: wrapDartForPreview(code), type: 'sourceCode' },
+      { sourceCode: wrapDartForPreview(code, rulebook), type: 'sourceCode' },
       DARTPAD_ORIGIN,
     )
   }

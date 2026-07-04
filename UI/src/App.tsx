@@ -24,10 +24,10 @@ const SEVERITY_RANK: Record<Severity, number> = { error: 3, warning: 2, info: 1 
 const PAGE_META: Record<NavPage, { title: string; subtitle: string }> = {
   overview: {
     title: 'Overview',
-    subtitle: 'Daily Goals consistency at a glance',
+    subtitle: 'Consistency at a glance',
   },
   comparison: {
-    title: 'Daily Goals',
+    title: 'Comparison',
     subtitle: 'Ready to reconcile iOS & Android?',
   },
   agents: {
@@ -72,6 +72,12 @@ function ResizeHandle() {
 export default function App() {
   const [view, setView] = useState<'paste' | 'dashboard'>('paste')
   const [page, setPage] = useState<NavPage>('comparison')
+  const [screenName, setScreenName] = useState('login')
+  const [rulebook, setRulebook] = useState<Record<string, string>>(
+    mockComparison.rulebook,
+  )
+  const [iosPanelMeta, setIosPanelMeta] = useState(mockComparison.ios)
+  const [androidPanelMeta, setAndroidPanelMeta] = useState(mockComparison.android)
   const [iosCode, setIosCode] = useState(mockComparison.ios.code)
   const [androidCode, setAndroidCode] = useState(mockComparison.android.code)
   const [rescanNonce, setRescanNonce] = useState(0)
@@ -84,14 +90,27 @@ export default function App() {
   const [iosPulse, setIosPulse] = useState<LinePulse | null>(null)
   const [androidPulse, setAndroidPulse] = useState<LinePulse | null>(null)
 
+  const applyComparison = (result: NonNullable<Awaited<ReturnType<typeof fetchComparison>>>) => {
+    setItems(result.inconsistencies)
+    setIosCode(result.ios.code)
+    setAndroidCode(result.android.code)
+    setIosPanelMeta(result.ios)
+    setAndroidPanelMeta(result.android)
+    if (result.screen) setScreenName(result.screen)
+    if (result.rulebook) setRulebook(result.rulebook)
+  }
+
+  const refreshFromEngine = async () => {
+    const result = await fetchComparison(screenName)
+    if (result) applyComparison(result)
+  }
+
   // On load, pull the engine's latest state (tickets from the last `unitem
   // diff` run + the mapped screens' real source). Falls back to the mock.
   useEffect(() => {
     fetchComparison().then((result) => {
       if (result && result.inconsistencies.length > 0) {
-        setItems(result.inconsistencies)
-        setIosCode(result.ios.code)
-        setAndroidCode(result.android.code)
+        applyComparison(result)
         setView('dashboard') // engine has judged tickets — go straight to review
       }
     })
@@ -104,6 +123,8 @@ export default function App() {
         i.id === id ? (updated ?? { ...i, status: 'resolved' }) : i,
       ),
     )
+    await refreshFromEngine()
+    setRescanNonce((n) => n + 1)
   }
 
   const onIgnore = async (id: string) => {
@@ -117,7 +138,12 @@ export default function App() {
 
   const onResolveAll = () => {
     for (const item of items) {
-      if (item.status === 'open') void onResolve(item.id)
+      if (
+        item.status === 'open' &&
+        (item.verdict === 'flag' || !item.verdict)
+      ) {
+        void onResolve(item.id)
+      }
     }
   }
 
@@ -139,16 +165,23 @@ export default function App() {
     setPage('comparison')
     setView('dashboard')
     const result = await analyzePair(payload.iosCode, payload.androidCode)
-    if (result) setItems(result.inconsistencies) // engine-judged verdicts
+    if (result) applyComparison(result)
   }
 
   const active = items.find((i) => i.id === activeId) ?? null
-  const iosPanel = { ...mockComparison.ios, code: iosCode }
-  const androidPanel = { ...mockComparison.android, code: androidCode }
-  const openErrors = items.filter(
-    (i) => i.status === 'open' && i.severity === 'error',
+  const iosPanel = { ...iosPanelMeta, code: iosCode }
+  const androidPanel = { ...androidPanelMeta, code: androidCode }
+  const openFlags = items.filter(
+    (i) =>
+      i.status === 'open' &&
+      i.verdict !== 'hold' &&
+      (i.verdict === 'flag' || !i.verdict),
   ).length
-  const meta = PAGE_META[page]
+  const screenLabel = screenName.charAt(0).toUpperCase() + screenName.slice(1)
+  const meta =
+    page === 'comparison'
+      ? { title: screenLabel, subtitle: PAGE_META.comparison.subtitle }
+      : PAGE_META[page]
 
   if (view === 'paste') {
     return (
@@ -205,7 +238,10 @@ export default function App() {
 
           {page === 'comparison' && (
             <button
-              onClick={() => setRescanNonce((n) => n + 1)}
+              onClick={() => {
+                void refreshFromEngine()
+                setRescanNonce((n) => n + 1)
+              }}
               className="flex items-center gap-1.5 rounded-full bg-info-blue px-4 py-2 font-heading text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
             >
               <svg
@@ -231,7 +267,7 @@ export default function App() {
         <NavRail
           page={page}
           onNavigate={setPage}
-          alertCount={openErrors}
+          alertCount={openFlags}
         />
 
         {page === 'comparison' ? (
@@ -243,6 +279,7 @@ export default function App() {
               <ScreenPanel
                 panel={iosPanel}
                 title="iOS · Swift"
+                rulebook={rulebook}
                 flaggedLines={flaggedLines(items, 'ios')}
                 activeLine={active?.ios.line ?? null}
                 pulse={iosPulse}
@@ -256,6 +293,7 @@ export default function App() {
                 key={`android-${rescanNonce}`}
                 panel={androidPanel}
                 title="Android · Dart"
+                rulebook={rulebook}
                 flaggedLines={flaggedLines(items, 'android')}
                 activeLine={active?.android.line ?? null}
                 pulse={androidPulse}
@@ -282,7 +320,7 @@ export default function App() {
         ) : page === 'agents' ? (
           <AgentsPage />
         ) : page === 'rulebook' ? (
-          <RulebookPage rulebook={mockComparison.rulebook} items={items} />
+          <RulebookPage rulebook={rulebook} items={items} />
         ) : (
           <AlertsPage
             items={items}

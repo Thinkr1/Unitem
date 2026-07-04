@@ -13,6 +13,7 @@ export interface LinePulse {
 interface ScreenPanelProps {
   panel: CodePanelData
   title: string
+  rulebook?: Record<string, string>
   flaggedLines: Map<number, Severity>
   activeLine: number | null
   pulse: LinePulse | null
@@ -29,6 +30,7 @@ const FLAG_CLASS: Record<Severity, string> = {
 export default function ScreenPanel({
   panel,
   title,
+  rulebook = {},
   flaggedLines,
   activeLine,
   pulse,
@@ -48,6 +50,10 @@ export default function ScreenPanel({
 
   // When an inconsistency is selected, switch to code view is opt-in —
   // visual view handles its own highlight so we don't force a tab switch.
+
+  const previewVariant = /login/i.test(panel.fileName)
+    ? 'login'
+    : 'daily-goals'
 
   return (
     <section className="flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-edge bg-surface">
@@ -98,10 +104,12 @@ export default function ScreenPanel({
 
       {view === 'visual' ? (
         panel.platform === 'android' ? (
-          <FlutterPreview code={panel.code} device="Pixel 7" />
+          <FlutterPreview code={panel.code} device="Pixel 7" rulebook={rulebook} />
         ) : (
           <LoginPreview
             platform={panel.platform}
+            variant={previewVariant}
+            rulebook={rulebook}
             activeInconsistency={activeInconsistency}
             inconsistencies={inconsistencies}
           />
