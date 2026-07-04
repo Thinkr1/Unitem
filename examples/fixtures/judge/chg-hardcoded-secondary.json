@@ -1,0 +1,8 @@
+{
+  "verdict": "flag",
+  "severity": "high",
+  "confidence": 0.88,
+  "reason": "The Android 'Forgot password?' text hardcodes the literal #5A55F2 instead of using the TextSecondary token, and that literal is a stale value from the old brand palette. iOS uses Theme.textSecondary (#8A8BB3) for the same element. Replace the hardcoded hex with the TextSecondary token.",
+  "convention_refs": ["flag/hardcoded-color", "flag/stale-token"],
+  "expected": "#8A8BB3"
+}

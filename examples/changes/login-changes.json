@@ -1,0 +1,40 @@
+{
+  "changes": [
+    {
+      "id": "chg-brand-primary",
+      "kind": "token",
+      "category": "color",
+      "name": "color.brandPrimary",
+      "before": "#4F46E5",
+      "after": "#6366F1",
+      "origin_platform": "ios",
+      "location": { "file": "examples/ios/Theme.swift", "line": 15 },
+      "counterpart_location": { "file": "examples/android/Color.kt", "line": 5 },
+      "snippet": "enum Theme {\n    static let brandPrimary = Color(hex: \"#6366F1\")   // was #4F46E5\n    static let brandInk = Color(hex: \"#1A1B4B\")"
+    },
+    {
+      "id": "chg-toggle-native",
+      "kind": "component",
+      "category": "component",
+      "name": "component.rememberMe.toggle",
+      "before": "Toggle (default style)",
+      "after": "Toggle with .toggleStyle(.switch) and brand tint (native iOS switch appearance)",
+      "origin_platform": "ios",
+      "location": { "file": "examples/ios/LoginView.swift", "line": 20 },
+      "counterpart_location": { "file": "examples/android/LoginScreen.kt", "line": 46 },
+      "snippet": "Toggle(\"Remember me\", isOn: $rememberMe)\n    .toggleStyle(.switch)\n    .tint(Theme.brandPrimary)"
+    },
+    {
+      "id": "chg-hardcoded-secondary",
+      "kind": "style",
+      "category": "color",
+      "name": "color.textSecondary (hardcoded literal)",
+      "before": null,
+      "after": "#5A55F2",
+      "origin_platform": "android",
+      "location": { "file": "examples/android/LoginScreen.kt", "line": 58 },
+      "counterpart_location": { "file": "examples/ios/Theme.swift", "line": 17 },
+      "snippet": "Text(\"Forgot password?\", fontSize = 13.sp, color = Color(0xFF5A55F2))"
+    }
+  ]
+}

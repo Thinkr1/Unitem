@@ -1,0 +1,21 @@
+# Unitem engine configuration (paths relative to this file).
+ios_root: sample-ios
+android_root: sample-android
+tokens_file: design-tokens/tokens.json
+conventions: conventions/conventions.yaml
+agent_md: examples/agent.md      # replace with a root agent.md when one lands
+overrides_file: out/overrides.jsonl
+out_dir: out
+fixtures_dir: examples/fixtures
+screen: login
+
+runner:
+  name: mock        # mock | cursor  (mock = fixture replay, no network)
+  model: auto
+  concurrency: 4
+  timeout_s: 120
+
+repo:
+  remote: origin
+  pr_base_branch: main
+  github_repo: Thinkr1/Unitem

@@ -1,0 +1,12 @@
+{
+  "screens": [
+    {
+      "feature": "login",
+      "ios": ["examples/ios/LoginView.swift", "examples/ios/Theme.swift"],
+      "android": ["examples/android/LoginScreen.kt", "examples/android/Color.kt"],
+      "confidence": 1.0,
+      "status": "confirmed",
+      "one_sided": false
+    }
+  ]
+}
