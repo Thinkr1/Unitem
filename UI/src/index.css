@@ -11,30 +11,33 @@
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
   --font-sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
 
-  /* Twilight surfaces — deep indigo/navy layers */
-  --color-surface-deep: #0b0e1f;
-  --color-surface: #10142a;
-  --color-surface-raised: #171c38;
-  --color-well: #0d1023;
+  /* Charcoal surfaces — cards float on a darker backdrop */
+  --color-surface-deep: #0d0d0e;
+  --color-surface: #17181a;
+  --color-surface-raised: #202225;
+  --color-well: #0b0b0c;
 
-  --color-edge: #232948;
-  --color-edge-bright: #343c66;
+  --color-edge: rgba(255, 255, 255, 0.06);
+  --color-edge-bright: rgba(255, 255, 255, 0.12);
 
-  --color-ink: #d9dcf2;
-  --color-ink-muted: #8a90bd;
-  --color-ink-faint: #565d8a;
-  --color-code: #c3c8e8;
+  --color-ink: #f4f4f5;
+  --color-ink-muted: #a1a1aa;
+  --color-ink-faint: #6b6f76;
+  --color-code: #d4d4d8;
 
-  /* Amber accent for primary actions */
-  --color-accent: #f5a524;
-  --color-accent-bright: #ffbe45;
-  --color-accent-contrast: #1a1204;
+  /* Lime accent for primary actions */
+  --color-accent: #c4f84b;
+  --color-accent-bright: #d4ff6a;
+  --color-accent-contrast: #16210a;
+
+  /* Royal-blue secondary highlight */
+  --color-info-blue: #4b72f0;
 
   --color-severity-error: #f87171;
   --color-severity-warning: #fbbf24;
   --color-severity-info: #60a5fa;
 
-  --color-match: #4ade80;
+  --color-match: #c4f84b;
   --color-mismatch: #fb7185;
 }
 
@@ -48,7 +51,9 @@ body {
 .app-drag {
   -webkit-app-region: drag;
 }
-.app-drag button {
+.app-drag button,
+.app-drag input,
+.app-drag [data-no-drag] {
   -webkit-app-region: no-drag;
 }
 
@@ -129,13 +134,13 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #262c4d;
+  background: #2c2d30;
   border-radius: 5px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #343c66;
+  background: #3a3b3f;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-corner {

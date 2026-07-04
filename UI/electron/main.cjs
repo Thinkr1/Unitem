@@ -9,7 +9,7 @@ function createWindow() {
     minWidth: 1100,
     minHeight: 700,
     title: 'Unitem',
-    backgroundColor: '#0b0e1f',
+    backgroundColor: '#0d0d0e',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 12 },
   })

@@ -49,11 +49,11 @@ export default function InconsistencyCard({
     <article
       onClick={() => onSelect(item)}
       className={[
-        'cursor-pointer rounded-md border border-l-2 transition-colors',
+        'cursor-pointer overflow-hidden rounded-xl border border-l-2 transition-colors',
         SEVERITY_BORDER[item.severity],
         active
-          ? 'border-accent/40 bg-surface-raised'
-          : 'border-edge bg-surface hover:border-edge-bright',
+          ? 'border-accent/50 bg-surface-raised'
+          : 'border-edge bg-surface-deep hover:border-edge-bright',
         settled ? 'opacity-40' : '',
       ].join(' ')}
     >
@@ -61,20 +61,22 @@ export default function InconsistencyCard({
       <div className="flex items-center gap-2.5 px-3 py-2.5">
         <SeverityBadge severity={item.severity} muted={settled} />
 
-        <span className="min-w-0 flex-1 truncate font-heading text-[12.5px] font-semibold text-ink">
-          {item.property}
-        </span>
-
-        {/* Compact one-line value summary */}
-        {!active && (
-          <span className="shrink-0 font-mono text-[10.5px] text-ink-faint">
-            <span className="text-mismatch">{item.ios.value}</span>
-            <span className="mx-1 text-ink-faint/40">·</span>
-            <span className="text-mismatch">{item.android.value}</span>
-            <span className="mx-1 text-ink-faint/40">→</span>
-            <span className="text-match">{item.expected}</span>
+        <div className="min-w-0 flex-1">
+          <span className="block truncate font-heading text-[12.5px] font-semibold text-ink">
+            {item.property}
           </span>
-        )}
+
+          {/* Compact one-line value summary */}
+          {!active && (
+            <span className="mt-0.5 block truncate font-mono text-[10.5px] text-ink-faint">
+              <span className="text-mismatch">{item.ios.value}</span>
+              <span className="mx-1 text-ink-faint/40">·</span>
+              <span className="text-mismatch">{item.android.value}</span>
+              <span className="mx-1 text-ink-faint/40">→</span>
+              <span className="text-match">{item.expected}</span>
+            </span>
+          )}
+        </div>
 
         {settled && (
           <span className="shrink-0 font-mono text-[9px] uppercase tracking-wider text-ink-faint">
