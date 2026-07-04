@@ -7,6 +7,7 @@ import {
   analyzePair,
   fetchComparison,
   overrideFinding,
+  rescan,
 } from './lib/api'
 import ScreenPanel, { type LinePulse } from './components/ScreenPanel'
 import InconsistenciesPanel, {
@@ -74,7 +75,9 @@ export default function App() {
   const [page, setPage] = useState<NavPage>('comparison')
   const [iosCode, setIosCode] = useState(mockComparison.ios.code)
   const [androidCode, setAndroidCode] = useState(mockComparison.android.code)
+  const [androidPreview, setAndroidPreview] = useState<string | undefined>()
   const [rescanNonce, setRescanNonce] = useState(0)
+  const [rescanning, setRescanning] = useState(false)
 
   const [items, setItems] = useState<Inconsistency[]>(
     mockComparison.inconsistencies,
@@ -92,10 +95,25 @@ export default function App() {
         setItems(result.inconsistencies)
         setIosCode(result.ios.code)
         setAndroidCode(result.android.code)
+        setAndroidPreview(result.android.previewCode)
         setView('dashboard') // engine has judged tickets — go straight to review
       }
     })
   }, [])
+
+  // Rescan = run the real pipeline (discover -> map -> judge agents -> fixes).
+  const onRescan = async () => {
+    setRescanning(true)
+    const result = await rescan()
+    if (result) {
+      setItems(result.inconsistencies)
+      setIosCode(result.ios.code)
+      setAndroidCode(result.android.code)
+      setAndroidPreview(result.android.previewCode)
+    }
+    setRescanning(false)
+    setRescanNonce((n) => n + 1) // remount the preview so it recompiles
+  }
 
   const onResolve = async (id: string) => {
     const updated = await acceptFinding(id) // engine applies the fix / opens PR
@@ -144,7 +162,11 @@ export default function App() {
 
   const active = items.find((i) => i.id === activeId) ?? null
   const iosPanel = { ...mockComparison.ios, code: iosCode }
-  const androidPanel = { ...mockComparison.android, code: androidCode }
+  const androidPanel = {
+    ...mockComparison.android,
+    code: androidCode,
+    previewCode: androidPreview,
+  }
   const openErrors = items.filter(
     (i) => i.status === 'open' && i.severity === 'error',
   ).length
@@ -205,8 +227,9 @@ export default function App() {
 
           {page === 'comparison' && (
             <button
-              onClick={() => setRescanNonce((n) => n + 1)}
-              className="flex items-center gap-1.5 rounded-full bg-info-blue px-4 py-2 font-heading text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
+              onClick={onRescan}
+              disabled={rescanning}
+              className="flex items-center gap-1.5 rounded-full bg-info-blue px-4 py-2 font-heading text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
             >
               <svg
                 width="14"
@@ -221,7 +244,7 @@ export default function App() {
               >
                 <path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4" />
               </svg>
-              Rescan
+              {rescanning ? 'Agents running…' : 'Rescan'}
             </button>
           )}
         </div>

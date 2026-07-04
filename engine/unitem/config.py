@@ -32,6 +32,7 @@ class Config(BaseModel):
     out_dir: Path
     fixtures_dir: Path
     screen: str = "login"
+    fixer: str = "auto"  # auto | agent | deterministic (auto: agent when runner=cursor)
     runner: RunnerConfig = RunnerConfig()
     repo: RepoConfig = RepoConfig()
 

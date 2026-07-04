@@ -87,7 +87,7 @@ export default function ScreenPanel({
 
       {view === 'visual' ? (
         panel.platform === 'android' ? (
-          <FlutterPreview code={panel.code} device="Pixel 7" />
+          <FlutterPreview code={panel.previewCode ?? panel.code} device="Pixel 7" />
         ) : (
           <LoginPreview
             platform={panel.platform}

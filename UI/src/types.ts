@@ -9,10 +9,12 @@ export type Status = 'open' | 'resolved' | 'ignored'
 
 export interface CodePanel {
   platform: 'ios' | 'android'
-  language: 'swift' | 'dart'
+  language: 'swift' | 'dart' | 'kotlin'
   fileName: string
   /** Raw source, shown with line numbers + highlighting. */
   code: string
+  /** Single-file version with local imports inlined — what DartPad can compile. */
+  previewCode?: string
 }
 
 export type Verdict = 'propagate' | 'hold' | 'flag'

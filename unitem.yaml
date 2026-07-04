@@ -10,7 +10,7 @@ fixtures_dir: examples/fixtures
 screen: login
 
 runner:
-  name: mock        # mock | cursor  (mock = fixture replay, no network)
+  name: cursor      # mock | cursor  (cursor = live agents via subscription; mock = fixture replay, offline)
   model: auto
   concurrency: 4
   timeout_s: 120

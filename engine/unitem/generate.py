@@ -180,6 +180,80 @@ def apply_fix(ticket: Ticket, cfg: Config) -> list[Path]:
     return _transform(ticket, cfg)
 
 
+# ── agentic fixer (ARCHITECTURE.md §6 "Fixer") ───────────────────────────────
+
+
+def _fix_instruction(ticket: Ticket, cfg: Config) -> str:
+    change = ticket.change
+    if ticket.verdict == "propagate" and change.kind == "token":
+        group, _, token = change.name.partition(".")
+        return (
+            f"You are Unitem's fixer agent applying an approved design propagation.\n"
+            f"Task: the design token {change.name} changed on {change.origin_platform} "
+            f"from {change.before} to {change.after}. Apply it to the canonical token "
+            f"source and regenerate the platform files:\n"
+            f"1. Edit design-tokens/tokens.json: set {group}.{token}.value to \"{change.after}\".\n"
+            f"2. Run: npx -y style-dictionary@4 build --config design-tokens/config.mjs\n"
+            f"3. Verify the counterpart file "
+            f"({change.counterpart_location.file if change.counterpart_location else 'the generated theme'}) "
+            f"now contains {change.after}.\n"
+            f"Touch NOTHING else. Do not commit. Reply with a one-line summary."
+        )
+    return (
+        f"You are Unitem's fixer agent applying an approved drift fix.\n"
+        f"Task: in {change.location.file} line {change.location.line}, the value "
+        f"{change.after} is hardcoded. Replace it with the design token whose value is "
+        f"{ticket.expected} (look in the same platform's theme file for the token name; "
+        f"add the import if that language requires it).\n"
+        f"Context: {ticket.reason}\n"
+        f"Touch ONLY that file. Do not commit. Reply with a one-line summary."
+    )
+
+
+def _agent_fix_succeeded(ticket: Ticket, cfg: Config) -> bool:
+    """Deterministic post-check on the agent's work."""
+    change = ticket.change
+    if ticket.verdict == "propagate" and change.kind == "token":
+        loc = change.counterpart_location
+        if loc is None:
+            return False
+        target = cfg.root / loc.file
+        return target.is_file() and change.after.lstrip("#").upper() in target.read_text(
+            encoding="utf-8"
+        ).upper()
+    target = cfg.root / change.location.file
+    if not target.is_file():
+        return False
+    hex_value = change.after.lstrip("#").upper()
+    return hex_value not in target.read_text(encoding="utf-8").upper()
+
+
+def apply_fix_with_agent(ticket: Ticket, cfg: Config) -> list[Path]:
+    """Dispatch a cursor-agent into the repo to apply the fix; verify its work
+    deterministically and fall back to the mechanical transform on failure."""
+    from .runner.cursor import _find_binary
+
+    try:
+        binary = _find_binary()
+        subprocess.run(
+            [binary, "-p", _fix_instruction(ticket, cfg), "--output-format", "json", "--trust"],
+            cwd=cfg.root,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if _agent_fix_succeeded(ticket, cfg):
+            touched = [cfg.root / ticket.change.location.file]
+            if ticket.change.counterpart_location:
+                touched.append(cfg.root / ticket.change.counterpart_location.file)
+            if ticket.change.kind == "token":
+                touched.append(cfg.tokens_file)
+            return [p for p in touched if p.is_file()]
+    except Exception:
+        pass  # fall through to the mechanical path
+    return _transform(ticket, cfg)
+
+
 # ── PR flow ──────────────────────────────────────────────────────────────────
 
 
@@ -231,11 +305,18 @@ def open_pr(ticket: Ticket, cfg: Config, touched: list[Path]) -> str | None:
 
 
 def apply_and_pr(ticket: Ticket, cfg: Config, runner_name: str | None = None) -> None:
-    """Called by the accept endpoint. Mutates ticket (proposed_fix, pr_url)."""
+    """Called by the accept endpoint. Mutates ticket (proposed_fix, pr_url).
+
+    Fixer selection (cfg.fixer): "agent" -> cursor-agent applies the edit in
+    the repo (verified, mechanical fallback); "deterministic" -> mechanical
+    transform; "auto" -> agent when the live runner is configured, mechanical
+    under mock (keeps tests and offline mode hermetic).
+    """
     if ticket.verdict == "hold":
         return
     runner_name = runner_name or cfg.runner.name
-    touched = apply_fix(ticket, cfg)
+    use_agent = cfg.fixer == "agent" or (cfg.fixer == "auto" and runner_name == "cursor")
+    touched = apply_fix_with_agent(ticket, cfg) if use_agent else apply_fix(ticket, cfg)
     if ticket.proposed_fix is None:
         diff = "".join(
             _unified_diff(p, "", p.read_text(encoding="utf-8"), cfg.root) for p in touched

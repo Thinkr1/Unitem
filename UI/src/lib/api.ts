@@ -22,6 +22,12 @@ export function fetchComparison(screen = 'login'): Promise<ComparisonResult | nu
   return request<ComparisonResult>(`/comparison?screen=${screen}`)
 }
 
+/** Re-run the full pipeline (discover -> map -> judge agents -> fix previews).
+ *  With the live runner this spawns one agent per change — expect ~a minute. */
+export function rescan(screen = 'login'): Promise<ComparisonResult | null> {
+  return request<ComparisonResult>(`/rescan?screen=${screen}`, { method: 'POST' })
+}
+
 /** Judge two pasted code snippets; replaces the engine's current ticket set. */
 export function analyzePair(
   iosCode: string,
