@@ -23,6 +23,12 @@ sample-ios/DerivedData/
 .DS_Store
 Thumbs.db
 
+# Playwright MCP session artifacts (browser logs / page snapshots)
+.playwright-mcp/
+
+# Local scratch screenshots at repo root (real app assets under UI/ stay tracked)
+/*.png
+
 # Secrets
 *.pem
 *.key
