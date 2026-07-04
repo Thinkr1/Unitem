@@ -19,20 +19,16 @@ const SEVERITY_BORDER: Record<string, string> = {
 
 function DiffRow({
   label,
-  lineRef,
   value,
   matches,
 }: {
   label: string
-  lineRef: string
   value: string
   matches: boolean
 }) {
   return (
-    <div className="flex items-baseline gap-2">
+    <div className="flex items-baseline gap-2 text-[11px]">
       <span className="w-14 shrink-0 text-ink-muted">{label}</span>
-      <span className="w-20 shrink-0 text-ink-faint">{lineRef}</span>
-      <span className="text-ink-faint">→</span>
       <span className={matches ? 'text-match' : 'text-mismatch'}>{value}</span>
     </div>
   )
@@ -56,8 +52,8 @@ export default function InconsistencyCard({
     ? 'border-l-info-blue/70'
     : SEVERITY_BORDER[item.severity]
 
-  const resolveLabel = isPropagate ? 'Approve' : 'Resolve'
-  const ignoreLabel = isHold ? 'Override' : 'Ignore'
+  const resolveLabel = isPropagate ? 'Apply fix' : 'Fix it'
+  const ignoreLabel = isHold ? 'Disagree' : 'Dismiss'
 
   return (
     <article
@@ -91,31 +87,11 @@ export default function InconsistencyCard({
           </div>
 
           {!active && (
-            <span className="mt-0.5 block truncate font-mono text-[10.5px] text-ink-faint">
-              {isHold ? (
-                <span className="text-ink-muted">{bodyText}</span>
-              ) : (
-                <>
-                  <span className="text-mismatch">{item.ios.value}</span>
-                  <span className="mx-1 text-ink-faint/40">·</span>
-                  <span className="text-mismatch">{item.android.value}</span>
-                  {showExpected && (
-                    <>
-                      <span className="mx-1 text-ink-faint/40">→</span>
-                      <span className="text-match">{item.expected}</span>
-                    </>
-                  )}
-                </>
-              )}
+            <span className="mt-0.5 block truncate text-[11px] leading-snug text-ink-muted">
+              {bodyText}
             </span>
           )}
         </div>
-
-        {item.confidence != null && !active && (
-          <span className="shrink-0 font-mono text-[9px] text-ink-faint">
-            {Math.round(item.confidence * 100)}%
-          </span>
-        )}
 
         {settled && (
           <span className="shrink-0 font-mono text-[9px] uppercase tracking-wider text-ink-faint">
@@ -135,35 +111,21 @@ export default function InconsistencyCard({
               {bodyText}
             </p>
 
-            {item.conventionRefs && item.conventionRefs.length > 0 && (
-              <p className="mb-2 font-mono text-[10px] text-ink-faint">
-                {item.conventionRefs.join(' · ')}
-              </p>
-            )}
-
             {!isHold && (
-              <div className="space-y-0.5 rounded bg-well px-2.5 py-2 font-mono text-[11px]">
+              <div className="space-y-1 rounded-lg bg-well px-2.5 py-2">
                 {showExpected && (
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-ink-muted">Rulebook expects:</span>
+                  <div className="flex items-baseline gap-2 text-[11px]">
+                    <span className="text-ink-muted">Should be:</span>
                     <span className="text-accent">{item.expected}</span>
-                  </div>
-                )}
-                {isPropagate && item.originPlatform && (
-                  <div className="flex items-baseline gap-2 pb-1 text-ink-muted">
-                    <span>Origin:</span>
-                    <span className="text-ink">{item.originPlatform}</span>
                   </div>
                 )}
                 <DiffRow
                   label="iOS"
-                  lineRef={`swift:${item.ios.line}`}
                   value={item.ios.value}
                   matches={showExpected ? item.ios.value === item.expected : false}
                 />
                 <DiffRow
                   label="Android"
-                  lineRef={`dart:${item.android.line}`}
                   value={item.android.value}
                   matches={
                     showExpected ? item.android.value === item.expected : false

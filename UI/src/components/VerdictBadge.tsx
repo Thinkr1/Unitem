@@ -7,9 +7,9 @@ const STYLE: Record<Verdict, string> = {
 }
 
 const LABEL: Record<Verdict, string> = {
-  propagate: 'Propagate',
-  hold: 'Hold',
-  flag: 'Flag',
+  propagate: 'Sync',
+  hold: 'OK as-is',
+  flag: 'Fix',
 }
 
 export default function VerdictBadge({

@@ -61,6 +61,10 @@ interface NavRailProps {
   page: NavPage
   onNavigate: (page: NavPage) => void
   alertCount?: number
+  onEditCode?: () => void
+  onRescan?: () => void
+  rescanning?: boolean
+  engineLive?: boolean | null
 }
 
 function NavTooltip({ label }: { label: string }) {
@@ -74,88 +78,140 @@ function NavTooltip({ label }: { label: string }) {
   )
 }
 
-export default function NavRail({ page, onNavigate, alertCount = 0 }: NavRailProps) {
+function ActionButton({
+  label,
+  onClick,
+  disabled,
+  active,
+  children,
+}: {
+  label: string
+  onClick?: () => void
+  disabled?: boolean
+  active?: boolean
+  children: ReactNode
+}) {
   return (
-    <nav className="flex w-16 shrink-0 flex-col items-center gap-6 py-4">
-      <div className="flex h-9 w-9 items-center justify-center">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path
-            d="M5 4v10a7 7 0 0 0 14 0V4"
-            stroke="var(--color-ink)"
-            strokeWidth="2.4"
-            strokeLinecap="round"
+    <div className="group relative">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
+          active
+            ? 'bg-accent text-accent-contrast shadow-[0_0_20px_rgba(197,232,53,0.25)]'
+            : 'bg-surface text-ink-muted hover:bg-surface-raised hover:text-ink disabled:opacity-40'
+        }`}
+      >
+        {children}
+      </button>
+      <NavTooltip label={label} />
+    </div>
+  )
+}
+
+export default function NavRail({
+  page,
+  onNavigate,
+  alertCount = 0,
+  onEditCode,
+  onRescan,
+  rescanning = false,
+  engineLive = null,
+}: NavRailProps) {
+  return (
+    <nav className="app-drag flex w-[4.5rem] shrink-0 flex-col items-center gap-4 pb-4 pt-11">
+      {/* Logo — sits below macOS traffic lights */}
+      <div className="group relative mb-1" data-no-drag>
+        <img
+          src="./unitem-logo.png"
+          alt="Unitem"
+          className="h-8 w-auto max-w-[3.25rem] object-contain brightness-110"
+          draggable={false}
+        />
+        {engineLive === false && (
+          <span
+            title="Engine offline — showing sample data"
+            className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-surface-deep"
           />
-        </svg>
+        )}
       </div>
 
-      <div className="flex flex-1 flex-col items-center gap-2">
+      {/* Primary actions */}
+      {(onEditCode || onRescan) && (
+        <div className="flex flex-col items-center gap-1.5" data-no-drag>
+          {onEditCode && (
+            <ActionButton label="Edit code" onClick={onEditCode}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
+            </ActionButton>
+          )}
+          {onRescan && page === 'comparison' && (
+            <ActionButton
+              label={rescanning ? 'Scanning…' : 'Rescan'}
+              onClick={onRescan}
+              disabled={rescanning}
+              active={rescanning}
+            >
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={rescanning ? 'animate-spin' : ''}
+                aria-hidden
+              >
+                <path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4" />
+              </svg>
+            </ActionButton>
+          )}
+        </div>
+      )}
+
+      <div className="h-px w-8 bg-edge" aria-hidden />
+
+      <div className="flex flex-1 flex-col items-center gap-2" data-no-drag>
         {ITEMS.map((item) => {
           const isActive = page === item.id
           return (
             <div key={item.id} className="group relative">
-            <button
-              onClick={() => onNavigate(item.id)}
-              aria-label={item.label}
-              aria-current={isActive ? 'page' : undefined}
-              className={`relative flex h-11 w-11 items-center justify-center rounded-full transition-colors ${
-                isActive
-                  ? 'bg-accent text-accent-contrast'
-                  : 'bg-surface text-ink-muted hover:bg-surface-raised hover:text-ink'
-              }`}
-            >
-              <svg
-                width="19"
-                height="19"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.9"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
+              <button
+                onClick={() => onNavigate(item.id)}
+                aria-label={item.label}
+                aria-current={isActive ? 'page' : undefined}
+                className={`relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
+                  isActive
+                    ? 'bg-accent text-accent-contrast shadow-[0_0_20px_rgba(197,232,53,0.2)]'
+                    : 'bg-surface text-ink-muted hover:bg-surface-raised hover:text-ink'
+                }`}
               >
-                {item.icon}
-              </svg>
-              {item.id === 'alerts' && alertCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-severity-error ring-2 ring-surface-deep" />
-              )}
-            </button>
-            <NavTooltip label={item.label} />
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  {item.icon}
+                </svg>
+                {item.id === 'alerts' && alertCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-severity-error ring-2 ring-surface-deep" />
+                )}
+              </button>
+              <NavTooltip label={item.label} />
             </div>
           )
         })}
-      </div>
-
-      <div className="flex flex-col items-center gap-3">
-        <div className="group relative">
-        <button
-          aria-label="Sign out"
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-          </svg>
-        </button>
-        <NavTooltip label="Sign out" />
-        </div>
-        <div
-          className="h-9 w-9 rounded-full border border-edge-bright bg-surface-raised"
-          style={{
-            backgroundImage:
-              'linear-gradient(135deg, #4b72f0 0%, #c4f84b 140%)',
-          }}
-          aria-hidden
-        />
       </div>
     </nav>
   )

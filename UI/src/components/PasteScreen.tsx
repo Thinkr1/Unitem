@@ -22,10 +22,12 @@ function Editor({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-edge bg-surface">
       <div className="flex items-center justify-between border-b border-edge px-4 py-2.5">
-        <span className="font-heading text-[12.5px] font-semibold text-ink">
+        <span className="font-heading text-[13px] font-semibold text-ink">
           {label}
         </span>
-        <span className="font-mono text-[10.5px] text-ink-faint">{hint}</span>
+        {hint ? (
+          <span className="font-mono text-[10.5px] text-ink-faint">{hint}</span>
+        ) : null}
       </div>
       <textarea
         value={value}
@@ -49,56 +51,46 @@ export default function PasteScreen({
   const canAnalyze = iosCode.trim().length > 0 || androidCode.trim().length > 0
 
   return (
-    <div className="flex h-screen flex-col bg-surface-deep text-ink antialiased">
-      <header className="app-drag flex h-16 shrink-0 items-center gap-3 pl-24 pr-5">
-        <div className="flex h-9 w-9 items-center justify-center">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path
-              d="M5 4v10a7 7 0 0 0 14 0V4"
-              stroke="var(--color-ink)"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-            />
-          </svg>
-        </div>
-        <div>
-          <h1 className="font-heading text-[15px] font-bold leading-tight tracking-wide text-ink">
-            New comparison
-          </h1>
-          <p className="text-[11.5px] text-ink-muted">
-            Paste your iOS and Android screens to reconcile them
-          </p>
-        </div>
-      </header>
+    <div className="flex h-screen bg-surface-deep text-ink antialiased">
+      <nav className="app-drag flex w-[4.5rem] shrink-0 flex-col items-center pt-11">
+        <img
+          src="./unitem-logo.png"
+          alt="Unitem"
+          className="h-8 w-auto max-w-[3.25rem] object-contain brightness-110"
+          draggable={false}
+        />
+      </nav>
 
-      <div className="flex min-h-0 flex-1 flex-col px-6 pb-6">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col px-6 pb-6 pt-4">
+        <h1 className="mb-1 font-heading text-[18px] font-bold text-ink">
+          Paste your code
+        </h1>
+        <p className="mb-5 text-[12px] text-ink-muted">
+          Drop in your iOS and Android screens to compare them side by side.
+        </p>
+
         <div className="flex min-h-0 flex-1 gap-4">
           <Editor
-            label="iOS · Swift"
-            hint="DailyGoalsView.swift"
+            label="iOS"
+            hint=""
             value={iosCode}
             onChange={setIosCode}
             placeholder="Paste your SwiftUI source here…"
           />
           <Editor
-            label="Android · Dart"
-            hint="daily_goals_screen.dart"
+            label="Android"
+            hint=""
             value={androidCode}
             onChange={setAndroidCode}
             placeholder="Paste your Flutter source here…"
           />
         </div>
 
-        <div className="mt-4 flex shrink-0 items-center justify-between">
-          <p className="text-[11px] text-ink-faint">
-            Both sides render as an interactive schematic inside a live
-            device mockup — iOS in a Simulator window, Android in an
-            Emulator window.
-          </p>
+        <div className="mt-4 flex shrink-0 justify-end">
           <button
             onClick={() => onAnalyze({ iosCode, androidCode })}
             disabled={!canAnalyze}
-            className="flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 font-heading text-[13px] font-semibold text-accent-contrast transition-colors hover:bg-accent-bright disabled:bg-surface-raised disabled:text-ink-faint"
+            className="flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 font-heading text-[13px] font-semibold text-accent-contrast transition-all hover:bg-accent-bright disabled:bg-surface-raised disabled:text-ink-faint"
           >
             Analyze
             <svg

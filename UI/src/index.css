@@ -25,10 +25,10 @@
   --color-ink-faint: #6b6f76;
   --color-code: #d4d4d8;
 
-  /* Lime accent for primary actions */
-  --color-accent: #c4f84b;
-  --color-accent-bright: #d4ff6a;
-  --color-accent-contrast: #16210a;
+  /* Brand lime — matched to the Unitem logo */
+  --color-accent: #c5e835;
+  --color-accent-bright: #d8f55a;
+  --color-accent-contrast: #1a2208;
 
   /* Royal-blue secondary highlight */
   --color-info-blue: #4b72f0;
@@ -37,7 +37,7 @@
   --color-severity-warning: #fbbf24;
   --color-severity-info: #60a5fa;
 
-  --color-match: #c4f84b;
+  --color-match: #c5e835;
   --color-mismatch: #fb7185;
 }
 

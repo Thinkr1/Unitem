@@ -35,7 +35,7 @@ export default function ScreenPanel({
   activeLine,
   pulse,
   activeInconsistency,
-  inconsistencies,
+  inconsistencies: _inconsistencies,
 }: ScreenPanelProps) {
   const [view, setView] = useState<'visual' | 'simulator' | 'code'>('visual')
   const lines = useMemo(() => panel.code.split('\n'), [panel.code])
@@ -53,18 +53,13 @@ export default function ScreenPanel({
 
   return (
     <section className="flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-edge bg-surface">
-      <header className="flex h-12 shrink-0 items-center justify-between px-4">
-        <div className="flex min-w-0 items-baseline gap-2">
-          <h2 className="font-heading text-[13px] font-semibold tracking-wide text-ink">
-            {title}
-          </h2>
-          <span className="truncate font-mono text-[11px] text-ink-faint">
-            {panel.fileName}
-          </span>
-        </div>
+      <header className="flex h-11 shrink-0 items-center justify-between px-4">
+        <h2 className="font-heading text-[14px] font-semibold tracking-wide text-ink">
+          {title}
+        </h2>
 
-        {/* View toggle — segmented lime pill */}
-        <div className="ml-3 flex shrink-0 rounded-full bg-surface-deep p-0.5">
+        {/* View toggle — segmented pill */}
+        <div className="flex shrink-0 rounded-full bg-surface-deep p-0.5">
           <button
             onClick={() => setView('visual')}
             className={`rounded-full px-3 py-1 font-heading text-[10.5px] font-semibold transition-colors ${

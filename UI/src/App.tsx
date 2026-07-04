@@ -25,29 +25,6 @@ import AlertsPage from './components/AlertsPage'
 
 const SEVERITY_RANK: Record<Severity, number> = { error: 3, warning: 2, info: 1 }
 
-const PAGE_META: Record<NavPage, { title: string; subtitle: string }> = {
-  overview: {
-    title: 'Overview',
-    subtitle: 'Consistency at a glance',
-  },
-  comparison: {
-    title: 'Comparison',
-    subtitle: 'Transfer the iOS design to Android',
-  },
-  agents: {
-    title: 'Agents',
-    subtitle: 'Pipeline monitor and stage details',
-  },
-  rulebook: {
-    title: 'Rulebook',
-    subtitle: 'Shared design tokens and violations',
-  },
-  alerts: {
-    title: 'Alerts',
-    subtitle: 'Open inconsistencies needing attention',
-  },
-}
-
 /** Line number -> highest severity among open inconsistencies on that line. */
 function flaggedLines(
   items: Inconsistency[],
@@ -223,11 +200,6 @@ export default function App() {
       i.verdict !== 'hold' &&
       (i.verdict === 'flag' || !i.verdict),
   ).length
-  const screenLabel = screenName.charAt(0).toUpperCase() + screenName.slice(1)
-  const meta =
-    page === 'comparison'
-      ? { title: screenLabel, subtitle: PAGE_META.comparison.subtitle }
-      : PAGE_META[page]
 
   if (view === 'paste') {
     return (
@@ -240,97 +212,26 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-surface-deep text-ink antialiased">
-      <header className="app-drag flex h-16 shrink-0 items-center gap-4 pl-24 pr-5">
-        <div className="min-w-0">
-          <h1 className="font-heading text-[15px] font-bold leading-tight tracking-wide text-ink">
-            {meta.title}
-          </h1>
-          <p className="text-[11.5px] text-ink-muted">{meta.subtitle}</p>
-        </div>
+    <div className="flex h-screen bg-surface-deep text-ink antialiased">
+      <NavRail
+        page={page}
+        onNavigate={setPage}
+        alertCount={openFlags}
+        onEditCode={() => setView('paste')}
+        onRescan={onRescan}
+        rescanning={rescanning}
+        engineLive={engineLive}
+      />
 
-        <div className="ml-auto flex items-center gap-3">
-          {engineLive === false && (
-            <span
-              title="The unitem engine on :8787 is unreachable — panels show bundled sample data, not your repo. Run `unitem serve` and reload."
-              className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 font-heading text-[11px] font-semibold text-amber-400"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-              Engine offline — sample data
-            </span>
-          )}
-          <button
-            onClick={() => setView('paste')}
-            className="rounded-full bg-surface px-3.5 py-2 font-heading text-[12px] font-medium text-ink-muted transition-colors hover:text-ink"
-          >
-            Edit code
-          </button>
-
-          <div
-            className="flex items-center gap-2 rounded-full bg-surface px-3.5 py-2"
-            data-no-drag
-          >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              className="text-ink-faint"
-              aria-hidden
-            >
-              <circle cx="11" cy="11" r="7" />
-              <path d="m20 20-3.5-3.5" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search for an inconsistency"
-              className="w-52 bg-transparent text-[12px] text-ink placeholder:text-ink-faint focus:outline-none"
-            />
-          </div>
-
-          {page === 'comparison' && (
-            <button
-              onClick={onRescan}
-              disabled={rescanning}
-              className="flex items-center gap-1.5 rounded-full bg-info-blue px-4 py-2 font-heading text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4" />
-              </svg>
-              {rescanning ? 'Agents running…' : 'Rescan'}
-            </button>
-          )}
-        </div>
-      </header>
-
-      <div className="flex min-h-0 flex-1 pl-2">
-        <NavRail
-          page={page}
-          onNavigate={setPage}
-          alertCount={openFlags}
-        />
-
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col pr-4 pb-4 pt-2">
         {page === 'comparison' ? (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col pb-4 pr-4 pl-1">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <PipelineStrip />
             <Group orientation="horizontal" className="min-h-0 flex-1">
             <Panel defaultSize="34%" minSize="18%" className="!overflow-visible">
               <ScreenPanel
                 panel={iosPanel}
-                title="iOS · Swift"
+                title="iOS"
                 rulebook={rulebook}
                 flaggedLines={flaggedLines(items, 'ios')}
                 activeLine={active?.ios.line ?? null}
@@ -344,7 +245,7 @@ export default function App() {
               <ScreenPanel
                 key={`android-${rescanNonce}`}
                 panel={androidPanel}
-                title="Android · Dart"
+                title="Android"
                 rulebook={rulebook}
                 flaggedLines={flaggedLines(items, 'android')}
                 activeLine={active?.android.line ?? null}
