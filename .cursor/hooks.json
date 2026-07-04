@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "echo 'Unitem: edit detected — run `unitem diff --screen login` if a mapped screen file changed' 2>/dev/null || true"
+      }
+    ]
+  }
+}

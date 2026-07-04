@@ -1,0 +1,15 @@
+---
+description: Swift/iOS rules for sample app and patch generation
+globs:
+  - "sample-ios/**"
+  - "**/*.swift"
+---
+
+# iOS / Swift Rules
+
+- Use SwiftUI for the sample Login screen.
+- Platform-native controls (UISwitch, SF Symbols) are **hold** candidates — do not propagate native control swaps to Android.
+- Brand tokens (colors, spacing scale, typography) are **propagate** candidates.
+- Prefer design tokens over hardcoded hex values. Hardcoded values are **flag** candidates.
+- Minimum touch target: 44pt.
+- System font is SF Pro (hold). Brand font changes propagate.
