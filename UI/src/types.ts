@@ -42,6 +42,8 @@ export interface Inconsistency {
 }
 
 export interface ComparisonResult {
+  /** Screen id from the engine mapping, e.g. "login". */
+  screen?: string
   ios: CodePanel
   android: CodePanel
   inconsistencies: Inconsistency[]

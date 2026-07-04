@@ -1,0 +1,29 @@
+# XcodeGen spec — generates SampleLogin.xcodeproj from this file + Sources/.
+# We check in the spec, not the generated project, so `xcodegen generate`
+# (run automatically by run.sh) is always the source of truth.
+#
+# Install xcodegen once: `brew install xcodegen`
+name: SampleLogin
+options:
+  bundleIdPrefix: com.unitem.sample
+targets:
+  SampleLogin:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.unitem.sample.login
+        PRODUCT_NAME: SampleLogin
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1" # iPhone only
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "Unitem Login"
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        # Simulator-only sample: no Apple Developer account needed.
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""

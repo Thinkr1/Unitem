@@ -1,5 +1,6 @@
 import type { Inconsistency } from '../types'
 import SeverityBadge from './SeverityBadge'
+import VerdictBadge from './VerdictBadge'
 
 interface CardProps {
   item: Inconsistency
@@ -44,39 +45,76 @@ export default function InconsistencyCard({
   onIgnore,
 }: CardProps) {
   const settled = item.status !== 'open'
+  const verdict = item.verdict ?? 'flag'
+  const isHold = verdict === 'hold'
+  const isPropagate = verdict === 'propagate'
+  const bodyText = item.reason ?? item.rule
+  const showExpected = item.expected != null && item.expected !== ''
+
+  const borderClass = isHold
+    ? 'border-l-info-blue/70'
+    : SEVERITY_BORDER[item.severity]
+
+  const resolveLabel = isPropagate ? 'Approve' : 'Resolve'
+  const ignoreLabel = isHold ? 'Override' : 'Ignore'
 
   return (
     <article
       onClick={() => onSelect(item)}
       className={[
         'cursor-pointer overflow-hidden rounded-xl border border-l-2 transition-colors',
-        SEVERITY_BORDER[item.severity],
+        borderClass,
         active
-          ? 'border-accent/50 bg-surface-raised'
+          ? isHold
+            ? 'border-info-blue/40 bg-surface-raised'
+            : 'border-accent/50 bg-surface-raised'
           : 'border-edge bg-surface-deep hover:border-edge-bright',
         settled ? 'opacity-40' : '',
       ].join(' ')}
     >
-      {/* ── Resting row — always visible ─────────────────────────── */}
       <div className="flex items-center gap-2.5 px-3 py-2.5">
-        <SeverityBadge severity={item.severity} muted={settled} />
+        {isHold ? (
+          <VerdictBadge verdict="hold" muted={settled} />
+        ) : (
+          <SeverityBadge severity={item.severity} muted={settled} />
+        )}
 
         <div className="min-w-0 flex-1">
-          <span className="block truncate font-heading text-[12.5px] font-semibold text-ink">
-            {item.property}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="block truncate font-heading text-[12.5px] font-semibold text-ink">
+              {item.property}
+            </span>
+            {item.verdict && item.verdict !== 'flag' && (
+              <VerdictBadge verdict={item.verdict} muted={settled} />
+            )}
+          </div>
 
-          {/* Compact one-line value summary */}
           {!active && (
             <span className="mt-0.5 block truncate font-mono text-[10.5px] text-ink-faint">
-              <span className="text-mismatch">{item.ios.value}</span>
-              <span className="mx-1 text-ink-faint/40">·</span>
-              <span className="text-mismatch">{item.android.value}</span>
-              <span className="mx-1 text-ink-faint/40">→</span>
-              <span className="text-match">{item.expected}</span>
+              {isHold ? (
+                <span className="text-ink-muted">{bodyText}</span>
+              ) : (
+                <>
+                  <span className="text-mismatch">{item.ios.value}</span>
+                  <span className="mx-1 text-ink-faint/40">·</span>
+                  <span className="text-mismatch">{item.android.value}</span>
+                  {showExpected && (
+                    <>
+                      <span className="mx-1 text-ink-faint/40">→</span>
+                      <span className="text-match">{item.expected}</span>
+                    </>
+                  )}
+                </>
+              )}
             </span>
           )}
         </div>
+
+        {item.confidence != null && !active && (
+          <span className="shrink-0 font-mono text-[9px] text-ink-faint">
+            {Math.round(item.confidence * 100)}%
+          </span>
+        )}
 
         {settled && (
           <span className="shrink-0 font-mono text-[9px] uppercase tracking-wider text-ink-faint">
@@ -85,9 +123,6 @@ export default function InconsistencyCard({
         )}
       </div>
 
-      {/* ── Expanded detail — visible only when active ──────────────
-          Uses the CSS grid trick: grid-rows-[0fr] → grid-rows-[1fr]
-          to animate open/close without JS height measuring.          */}
       <div
         className={`grid transition-[grid-template-rows] duration-200 ease-out ${
           active ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
@@ -95,43 +130,78 @@ export default function InconsistencyCard({
       >
         <div className="overflow-hidden">
           <div className="border-t border-edge/60 px-3 pb-3 pt-2.5">
-            {/* Rule text */}
             <p className="mb-2.5 text-[11.5px] leading-snug text-ink-muted">
-              {item.rule}
+              {bodyText}
             </p>
 
-            {/* Diff block */}
-            <div className="space-y-0.5 rounded bg-well px-2.5 py-2 font-mono text-[11px]">
-              <div className="flex items-baseline gap-2">
-                <span className="text-ink-muted">Rulebook expects:</span>
-                <span className="text-accent">{item.expected}</span>
-              </div>
-              <DiffRow
-                label="iOS"
-                lineRef={`swift:${item.ios.line}`}
-                value={item.ios.value}
-                matches={item.ios.value === item.expected}
-              />
-              <DiffRow
-                label="Android"
-                lineRef={`dart:${item.android.line}`}
-                value={item.android.value}
-                matches={item.android.value === item.expected}
-              />
-            </div>
+            {item.conventionRefs && item.conventionRefs.length > 0 && (
+              <p className="mb-2 font-mono text-[10px] text-ink-faint">
+                {item.conventionRefs.join(' · ')}
+              </p>
+            )}
 
-            {/* Action buttons */}
-            <div className="mt-2.5 flex gap-2">
-              <button
-                disabled={settled}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onResolve(item.id)
-                }}
-                className="rounded border border-accent/50 px-2.5 py-1 font-heading text-[11px] font-medium text-accent transition-colors hover:bg-accent/10 disabled:pointer-events-none disabled:border-edge disabled:text-ink-faint"
+            {!isHold && (
+              <div className="space-y-0.5 rounded bg-well px-2.5 py-2 font-mono text-[11px]">
+                {showExpected && (
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-ink-muted">Rulebook expects:</span>
+                    <span className="text-accent">{item.expected}</span>
+                  </div>
+                )}
+                {isPropagate && item.originPlatform && (
+                  <div className="flex items-baseline gap-2 pb-1 text-ink-muted">
+                    <span>Origin:</span>
+                    <span className="text-ink">{item.originPlatform}</span>
+                  </div>
+                )}
+                <DiffRow
+                  label="iOS"
+                  lineRef={`swift:${item.ios.line}`}
+                  value={item.ios.value}
+                  matches={showExpected ? item.ios.value === item.expected : false}
+                />
+                <DiffRow
+                  label="Android"
+                  lineRef={`dart:${item.android.line}`}
+                  value={item.android.value}
+                  matches={
+                    showExpected ? item.android.value === item.expected : false
+                  }
+                />
+              </div>
+            )}
+
+            {item.proposedFix?.diff && (
+              <pre className="mt-2.5 max-h-40 overflow-auto rounded bg-well px-2.5 py-2 font-mono text-[10px] leading-relaxed text-code whitespace-pre-wrap">
+                {item.proposedFix.diff.trim()}
+              </pre>
+            )}
+
+            {item.prUrl && (
+              <a
+                href={item.prUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="mt-2 inline-flex items-center gap-1 font-heading text-[11px] font-medium text-info-blue hover:underline"
               >
-                Resolve
-              </button>
+                View PR ↗
+              </a>
+            )}
+
+            <div className="mt-2.5 flex gap-2">
+              {!isHold && (
+                <button
+                  disabled={settled}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onResolve(item.id)
+                  }}
+                  className="rounded border border-accent/50 px-2.5 py-1 font-heading text-[11px] font-medium text-accent transition-colors hover:bg-accent/10 disabled:pointer-events-none disabled:border-edge disabled:text-ink-faint"
+                >
+                  {resolveLabel}
+                </button>
+              )}
               <button
                 disabled={settled}
                 onClick={(e) => {
@@ -140,7 +210,7 @@ export default function InconsistencyCard({
                 }}
                 className="rounded border border-edge px-2.5 py-1 font-heading text-[11px] font-medium text-ink-muted transition-colors hover:border-edge-bright hover:text-ink disabled:pointer-events-none disabled:text-ink-faint"
               >
-                Ignore
+                {ignoreLabel}
               </button>
             </div>
           </div>

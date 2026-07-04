@@ -20,8 +20,8 @@ const DART_KEYWORDS = new Set([
 const TOKEN_PATTERN =
   /(\/\/.*)|("(?:[^"\\]|\\.)*"?)|('(?:[^'\\]|\\.)*'?)|(@\w+)|(\b\d+(?:\.\d+)?\b)|(\$?[A-Za-z_][A-Za-z0-9_]*)|(\s+)|(.)/g
 
-function classify(word: string, language: 'swift' | 'dart'): string | null {
-  const keywords = language === 'swift' ? SWIFT_KEYWORDS : DART_KEYWORDS
+function classify(word: string, language: 'swift' | 'dart' | 'kotlin'): string | null {
+  const keywords = language === 'swift' ? SWIFT_KEYWORDS : DART_KEYWORDS // kotlin shares most Dart keywords for display purposes
   if (keywords.has(word)) return 'tok-kw'
   if (word.startsWith('$') || word.startsWith('_')) return 'tok-var'
   if (/^[A-Z]/.test(word)) return 'tok-type'
@@ -30,7 +30,7 @@ function classify(word: string, language: 'swift' | 'dart'): string | null {
 
 export function highlightLine(
   line: string,
-  language: 'swift' | 'dart',
+  language: 'swift' | 'dart' | 'kotlin',
 ): ReactNode[] {
   const nodes: ReactNode[] = []
   let match: RegExpExecArray | null

@@ -1,21 +1,15 @@
-import type { Inconsistency, Severity } from '../types'
+import type { Inconsistency, Verdict } from '../types'
 import InconsistencyCard from './InconsistencyCard'
 
-export type Filter = 'all' | Severity | 'ignored'
+export type Filter = 'all' | Verdict | 'ignored'
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'error', label: 'Errors' },
-  { id: 'warning', label: 'Warnings' },
-  { id: 'info', label: 'Info' },
+  { id: 'propagate', label: 'Propagate' },
+  { id: 'hold', label: 'Hold' },
+  { id: 'flag', label: 'Flag' },
   { id: 'ignored', label: 'Ignored' },
 ]
-
-const COUNT_DOT: Record<Severity, string> = {
-  error: 'bg-severity-error',
-  warning: 'bg-severity-warning',
-  info: 'bg-severity-info',
-}
 
 function ScoreRing({ value }: { value: number }) {
   const r = 26
@@ -74,21 +68,23 @@ export default function InconsistenciesPanel({
   onResolveAll,
 }: PanelProps) {
   const open = items.filter((i) => i.status === 'open')
-  const counts: Record<Severity, number> = {
-    error: open.filter((i) => i.severity === 'error').length,
-    warning: open.filter((i) => i.severity === 'warning').length,
-    info: open.filter((i) => i.severity === 'info').length,
+  const issues = items.filter((i) => i.verdict !== 'hold')
+  const counts: Record<Verdict, number> = {
+    propagate: open.filter((i) => i.verdict === 'propagate').length,
+    hold: open.filter((i) => i.verdict === 'hold').length,
+    flag: open.filter((i) => i.verdict === 'flag' || !i.verdict).length,
   }
 
-  const resolved = items.filter((i) => i.status === 'resolved').length
-  const settled = items.filter((i) => i.status !== 'open').length
-  const total = items.length
+  const resolved = issues.filter((i) => i.status === 'resolved').length
+  const settled = issues.filter((i) => i.status !== 'open').length
+  const total = issues.length
   const score = total === 0 ? 100 : Math.round((settled / total) * 100)
 
   const visible = items.filter((i) => {
     if (filter === 'all') return true
     if (filter === 'ignored') return i.status === 'ignored'
-    return i.severity === filter
+    if (filter === 'flag') return i.verdict === 'flag' || !i.verdict
+    return i.verdict === filter
   })
 
   return (
@@ -126,15 +122,21 @@ export default function InconsistenciesPanel({
               style={{ width: `${score}%` }}
             />
           </div>
-          {/* Severity breakdown */}
+          {/* Verdict breakdown */}
           <div className="mt-2.5 flex items-center gap-3">
-            {(['error', 'warning', 'info'] as Severity[]).map((s) => (
-              <span key={s} className="flex items-center gap-1.5">
+            {(['propagate', 'hold', 'flag'] as Verdict[]).map((v) => (
+              <span key={v} className="flex items-center gap-1.5">
                 <span
-                  className={`inline-block h-1.5 w-1.5 rounded-full ${COUNT_DOT[s]}`}
+                  className={`inline-block h-1.5 w-1.5 rounded-full ${
+                    v === 'propagate'
+                      ? 'bg-info-blue'
+                      : v === 'hold'
+                        ? 'bg-ink-faint'
+                        : 'bg-severity-warning'
+                  }`}
                 />
-                <span className="font-mono text-[10.5px] text-ink-muted">
-                  {counts[s]} {s}
+                <span className="font-mono text-[10.5px] text-ink-muted capitalize">
+                  {counts[v]} {v}
                 </span>
               </span>
             ))}
