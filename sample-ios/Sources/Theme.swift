@@ -14,7 +14,7 @@ extension Color {
 }
 
 enum Theme {
-    static let brandPrimary = Color(hex: "#6366F1")
+    static let brandPrimary = Color(hex: "#4F46E5")
     static let brandInk = Color(hex: "#1A1B4B")
     static let textSecondary = Color(hex: "#8A8BB3")
     static let surface = Color(hex: "#FFFFFF")
