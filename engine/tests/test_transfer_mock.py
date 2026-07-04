@@ -32,8 +32,16 @@ def test_transfer_mock_end_to_end(tmp_path):
     cfg = _cfg(tmp_path)
     runner = MockRunner(cfg.fixtures_dir)
 
+    ios_before = {
+        p: p.read_text() for p in sorted(cfg.ios_root.rglob("*.swift"))
+    }
+
     stages = []
     result = run_transfer(cfg, runner, on_stage=lambda s, d: stages.append(s))
+
+    # iOS is the source of truth: a transfer must NEVER write to the iOS side
+    for path, before in ios_before.items():
+        assert path.read_text() == before, f"transfer modified iOS file {path}"
 
     assert result.ok, result.error
     assert result.attempts == 1
@@ -112,9 +120,12 @@ def test_preview_compile_source_builds_a_runnable_harness():
     assert source is not None
     assert "import 'theme.dart';" not in source  # inlined
     assert "class AppTheme {}" in source
-    assert "FlutterLogo" in source and "Image.asset" not in source
+    # asset swapped for the shared placeholder tile (matches SwiftPreview's)
+    assert "Image.asset" not in source and "Icons.image_outlined" in source
+    # scaled virtual-device harness, mirroring the UI's DartPad wrapper
     assert "void main() => runApp(MaterialApp(" in source
-    assert "home: LoginScreen()" in source
+    assert "FittedBox" in source and "width: 375" in source
+    assert "child: LoginScreen()" in source
 
 
 def test_resolve_screen_files_finds_the_demo_pair(tmp_path):
@@ -124,3 +135,30 @@ def test_resolve_screen_files_finds_the_demo_pair(tmp_path):
     assert files["flutter_screen"] and files["flutter_screen"].name == "login_screen.dart"
     assert files["ios_theme"] and files["ios_theme"].name == "Theme.swift"
     assert files["pubspec"] and files["pubspec"].name == "pubspec.yaml"
+
+
+def test_debug_reset_restores_legacy_android(tmp_path):
+    from fastapi.testclient import TestClient
+    from unitem.api import create_app
+
+    cfg = _cfg(tmp_path)
+    shutil.copytree(
+        REPO_ROOT / "examples" / "legacy-android",
+        tmp_path / "examples" / "legacy-android",
+    )
+    # start from the transferred state
+    runner = MockRunner(cfg.fixtures_dir)
+    assert run_transfer(cfg, runner).ok
+
+    client = TestClient(create_app(cfg))
+    body = client.post("/debug/reset-android?screen=login")
+    assert body.status_code == 200
+
+    theme = (cfg.android_root / "lib" / "theme.dart").read_text()
+    screen = (cfg.android_root / "lib" / "login_screen.dart").read_text()
+    pubspec = (cfg.android_root / "pubspec.yaml").read_text()
+    assert "0xFF4F46E5" in theme  # legacy indigo is back
+    assert "GoogleFonts" not in screen
+    assert "google_fonts:" not in pubspec
+    # tickets reopened so the demo loop can run again
+    assert all(i["status"] == "open" for i in body.json()["inconsistencies"])

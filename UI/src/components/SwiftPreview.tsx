@@ -132,13 +132,14 @@ function NodeView({ node, theme, activeLine, ringColor }: NodeViewProps) {
   switch (node.kind) {
     case 'VStack':
     case 'LazyVStack': {
+      // SwiftUI centers VStack children by default; .leading/.trailing opt out
       const align = stackAlignment(node)
       return (
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
-            alignItems: align === 'leading' ? 'flex-start' : align === 'trailing' ? 'flex-end' : 'stretch',
+            alignItems: align === 'leading' ? 'flex-start' : align === 'trailing' ? 'flex-end' : 'center',
             gap: stackSpacing(node, theme) * S,
             width: '100%',
             ...boxStyle(style),

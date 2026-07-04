@@ -35,6 +35,14 @@ export function transferDesign(screen = 'login'): Promise<ComparisonResult | nul
   return request<ComparisonResult>(`/transfer?screen=${screen}`, { method: 'POST' })
 }
 
+/** DEV ONLY: restore the pre-transfer (legacy) Android files and reopen the
+ *  tickets so the transfer demo can be exercised again. */
+export function resetAndroid(screen = 'login'): Promise<ComparisonResult | null> {
+  return request<ComparisonResult>(`/debug/reset-android?screen=${screen}`, {
+    method: 'POST',
+  })
+}
+
 /** Judge two pasted code snippets; replaces the engine's current ticket set. */
 export function analyzePair(
   iosCode: string,

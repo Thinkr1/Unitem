@@ -91,6 +91,9 @@ export function wrapDartForPreview(
   // Theme.of(context) don't silently fall back to stock Material defaults.
   const seed = hexToFlutterColor(rulebook['color.brandPrimary'] ?? '#6366F1')
   const surface = hexToFlutterColor(rulebook['color.surface'] ?? '#FFFFFF')
+  // Render inside a scaled 375x812 virtual device (FittedBox) — the same
+  // trick the iOS panel uses (ScaleToFit) — so proportions, line wrapping and
+  // font sizes match the iOS preview instead of reflowing to the iframe size.
   const harness = `
 
 void main() => runApp(
@@ -101,7 +104,19 @@ void main() => runApp(
       colorScheme: ColorScheme.fromSeed(seedColor: ${seed}),
       scaffoldBackgroundColor: ${surface},
     ),
-    home: ${home},
+    home: Scaffold(
+      backgroundColor: ${surface},
+      body: Center(
+        child: FittedBox(
+          fit: BoxFit.contain,
+          child: SizedBox(
+            width: 375,
+            height: 812,
+            child: ${home},
+          ),
+        ),
+      ),
+    ),
   ),
 );
 `

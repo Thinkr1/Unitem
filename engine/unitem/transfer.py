@@ -63,6 +63,18 @@ _DARTPAD_PACKAGES = {
 _COMPILE_API = "https://stable.api.dartpad.dev/api/v3/compileDDC"
 _PACKAGE_IMPORT_RE = re.compile(r"import\s+'package:([a-z0-9_]+)/")
 
+# DartPad has no asset bundle, so previews swap Image.asset for this stand-in.
+# It must match the iOS preview's asset placeholder (SwiftPreview's glyph tile:
+# indigo gradient, rounded corners, image glyph) so the two panels agree.
+LOGO_PLACEHOLDER_DART = (
+    "Container(width: 96, height: 96, alignment: Alignment.center, "
+    "decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), "
+    "gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, "
+    "colors: [Color(0xFF1A1B4B), Color(0xFF3A3C7E)])), "
+    "child: const Icon(Icons.image_outlined, size: 43, color: Colors.white70))"
+)
+_IMAGE_ASSET_RE = re.compile(r"(?:const\s+)?Image\.asset\([^)]*\)")
+
 OnStage = Callable[[str, str], None]
 
 
@@ -247,13 +259,17 @@ def preview_compile_source(output: TransferOutput, screen_rel: str) -> str | Non
             body = re.sub(r"import\s+'package:flutter/[^']+';\n?", "", body)
             source = import_re.sub("", source)
             source = source.rstrip() + "\n\n// ── inlined for preview ──\n" + body.strip() + "\n"
-    source = re.sub(r"Image\.asset\([^)]*\)", "const FlutterLogo(size: 96)", source)
+    source = _IMAGE_ASSET_RE.sub(LOGO_PLACEHOLDER_DART, source)
     if not re.search(r"\bvoid\s+main\s*\(", source):
         widget = _WIDGET_CLASS_RE.search(source)
         home = f"{widget.group(1)}()" if widget else "const SizedBox()"
+        # same scaled 375x812 virtual device the UI harness uses, so the
+        # compile gate proves exactly what the panel will render
         source += (
             "\n\nvoid main() => runApp(MaterialApp("
-            f"debugShowCheckedModeBanner: false, home: {home}));\n"
+            "debugShowCheckedModeBanner: false, "
+            "home: Scaffold(body: Center(child: FittedBox(fit: BoxFit.contain, "
+            f"child: SizedBox(width: 375, height: 812, child: {home}))))));\n"
         )
     return source
 

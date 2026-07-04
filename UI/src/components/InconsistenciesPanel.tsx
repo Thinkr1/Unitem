@@ -55,6 +55,7 @@ interface PanelProps {
   onResolve: (id: string) => void
   onIgnore: (id: string) => void
   onResolveAll: () => void
+  onResetDemo?: () => void
   transferring?: boolean
 }
 
@@ -67,6 +68,7 @@ export default function InconsistenciesPanel({
   onResolve,
   onIgnore,
   onResolveAll,
+  onResetDemo,
   transferring = false,
 }: PanelProps) {
   const open = items.filter((i) => i.status === 'open')
@@ -97,13 +99,28 @@ export default function InconsistenciesPanel({
           Inconsistencies
         </h2>
 
-        <button
-          onClick={onResolveAll}
-          disabled={transferring}
-          className="shrink-0 rounded-full bg-accent px-3.5 py-1.5 font-heading text-[11px] font-semibold text-accent-contrast transition-colors hover:bg-accent-bright disabled:bg-surface-raised disabled:text-ink-faint"
-        >
-          {transferring ? 'Transferring…' : 'Transfer to Android'}
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {onResetDemo && (
+            <button
+              onClick={onResetDemo}
+              disabled={transferring}
+              title="DEV: restore the old Android design so the transfer can be tested again"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-deep text-ink-faint transition-colors hover:text-ink disabled:opacity-50"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M3 12a9 9 0 1 0 3-6.7" />
+                <path d="M3 4v5h5" />
+              </svg>
+            </button>
+          )}
+          <button
+            onClick={onResolveAll}
+            disabled={transferring}
+            className="rounded-full bg-accent px-3.5 py-1.5 font-heading text-[11px] font-semibold text-accent-contrast transition-colors hover:bg-accent-bright disabled:bg-surface-raised disabled:text-ink-faint"
+          >
+            {transferring ? 'Transferring…' : 'Transfer to Android'}
+          </button>
+        </div>
       </header>
 
       {/* ── Consistency summary ─────────────────────────────────────── */}

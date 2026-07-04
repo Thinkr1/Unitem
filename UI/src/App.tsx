@@ -8,6 +8,7 @@ import {
   fetchComparison,
   overrideFinding,
   rescan,
+  resetAndroid,
   transferDesign,
 } from './lib/api'
 import ScreenPanel, { type LinePulse } from './components/ScreenPanel'
@@ -158,27 +159,34 @@ export default function App() {
   }
 
   // Whole-screen transfer: the engine's writer agent regenerates the Flutter
-  // screen + theme from the iOS design. If the engine is unreachable, fall
-  // back to accepting the open findings one by one.
+  // screen + theme from the iOS design. Writes ONLY to the Android side.
+  // If the request fails (engine down, or the fetch timed out on a long run),
+  // re-sync from the engine — never fall back to per-finding accepts, because
+  // the token-propagate path regenerates Theme.swift and would clobber manual
+  // iOS edits.
   const onTransfer = async () => {
     if (transferring) return
     setTransferring(true)
     try {
       const result = await transferDesign(screenName)
-      setEngineLive(result !== null)
       if (result) {
+        setEngineLive(true)
         applyComparison(result)
       } else {
-        for (const item of items) {
-          if (item.status === 'open' && item.verdict !== 'hold') {
-            await onResolve(item.id)
-          }
-        }
+        await refreshFromEngine() // sets the offline badge if truly down
       }
     } finally {
       setTransferring(false)
       setRescanNonce((n) => n + 1) // remount DartPad so it compiles the new screen
     }
+  }
+
+  // DEV ONLY: put the old Material design back so the transfer can be re-run.
+  const onResetDemo = async () => {
+    const result = await resetAndroid(screenName)
+    setEngineLive(result !== null)
+    if (result) applyComparison(result)
+    setRescanNonce((n) => n + 1)
   }
 
   const onSelect = (item: Inconsistency) => {
@@ -356,6 +364,7 @@ export default function App() {
                 onResolve={onResolve}
                 onIgnore={onIgnore}
                 onResolveAll={onTransfer}
+                onResetDemo={onResetDemo}
                 transferring={transferring}
               />
             </Panel>

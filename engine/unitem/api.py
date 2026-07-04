@@ -251,13 +251,11 @@ def _flatten_dart_for_preview(code: str, screen_path: Path) -> str | None:
         dep_code = re.sub(r"import\s+'package:flutter/[^']+';\n?", "", dep.read_text(encoding="utf-8"))
         inlined_parts.append(dep_code.strip())
     flattened = re.sub(r"import\s+'(?!package:)[^']+';\n?", "", code)
-    # DartPad has no asset bundle — swap asset images for the FlutterLogo so
-    # the preview renders clean instead of a red decode-error box.
-    flattened = re.sub(
-        r"Image\.asset\([^)]*\)",
-        "const FlutterLogo(size: 96)",
-        flattened,
-    )
+    # DartPad has no asset bundle — swap asset images for the same placeholder
+    # tile the iOS preview draws, so both panels show an identical stand-in.
+    from .transfer import _IMAGE_ASSET_RE, LOGO_PLACEHOLDER_DART
+
+    flattened = _IMAGE_ASSET_RE.sub(LOGO_PLACEHOLDER_DART, flattened)
     return flattened.rstrip() + "\n\n// ── inlined for preview ──\n" + "\n\n".join(inlined_parts) + "\n"
 
 
@@ -473,6 +471,30 @@ def create_app(cfg: Config) -> FastAPI:
             ticket.status = "accepted"
             store.save()
             return ticket_to_ui(ticket, cfg)
+
+    @app.post("/debug/reset-android")
+    def reset_android(screen: str = "login") -> dict:
+        """DEV ONLY: restore the pre-transfer (legacy Material) Android files
+        and reopen the tickets, so the transfer demo can be run again."""
+        legacy = cfg.root / "examples" / "legacy-android"
+        if not legacy.is_dir():
+            raise HTTPException(status_code=404, detail="examples/legacy-android missing")
+        targets = {
+            "login_screen.dart": cfg.android_root / "lib" / "login_screen.dart",
+            "theme.dart": cfg.android_root / "lib" / "theme.dart",
+            "pubspec.yaml": cfg.android_root / "pubspec.yaml",
+        }
+        for name, target in targets.items():
+            source = legacy / name
+            if source.is_file():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+        with store.lock:
+            for ticket in store.tickets.tickets:
+                ticket.status = "pending"
+            store.save()
+        progress.event("dev reset: Android restored to the legacy design")
+        return comparison(screen)
 
     @app.post("/findings/{ticket_id}/override")
     def override(ticket_id: str, body: OverrideBody) -> dict:
