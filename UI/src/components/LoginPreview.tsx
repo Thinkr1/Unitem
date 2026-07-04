@@ -65,20 +65,193 @@ function ringStyle(color: string): CSSProperties {
   }
 }
 
+function loginTokens(
+  platform: 'ios' | 'android',
+  rulebook: Record<string, string>,
+  inconsistencies: Inconsistency[],
+) {
+  const brand = inconsistencies.find((i) =>
+    i.property.toLowerCase().includes('brand'),
+  )
+  return {
+    brandPrimary:
+      platform === 'ios'
+        ? (brand?.ios.value ?? rulebook['color.brandPrimary'] ?? '#6366F1')
+        : (brand?.android.value ?? '#4F46E5'),
+    brandInk: rulebook['color.brandInk'] ?? '#1A1B4B',
+    textSecondary: rulebook['color.textSecondary'] ?? '#8A8BB3',
+    headingSize: Number(rulebook['font.headingSize'] ?? 28),
+    forgotColor: platform === 'android' ? '#5A55F2' : (rulebook['color.textSecondary'] ?? '#8A8BB3'),
+    device: platform === 'ios' ? 'iPhone 15 Pro' : 'Pixel 7',
+  }
+}
+
+function LoginSchematicPreview({
+  platform,
+  rulebook,
+  activeInconsistency,
+  inconsistencies,
+}: {
+  platform: 'ios' | 'android'
+  rulebook: Record<string, string>
+  activeInconsistency: Inconsistency | null
+  inconsistencies: Inconsistency[]
+}) {
+  const t = loginTokens(platform, rulebook, inconsistencies)
+  const activeElement =
+    activeInconsistency?.status === 'open'
+      ? loginElementFor(activeInconsistency)
+      : null
+
+  function highlight(key: LoginElementKey): CSSProperties {
+    if (activeElement === key && activeInconsistency) {
+      return ringStyle(SEVERITY_RING[activeInconsistency.severity])
+    }
+    return {}
+  }
+
+  const screen = (
+    <div
+      className="flex flex-1 flex-col items-stretch justify-center overflow-hidden px-6 pb-6 pt-4"
+      style={{ background: '#ffffff' }}
+    >
+      <div className="mb-6 text-center" style={highlight('heading')}>
+        <p
+          style={{
+            fontSize: t.headingSize * 0.72,
+            fontWeight: 700,
+            color: t.brandInk,
+            fontFamily: 'Space Grotesk, sans-serif',
+            margin: 0,
+          }}
+        >
+          Welcome back
+        </p>
+      </div>
+
+      <div
+        className="mb-3 rounded-lg border border-[#e2e2e8] px-3 py-2.5"
+        style={{ height: 36, background: '#fafafa' }}
+      >
+        <span style={{ fontSize: 12, color: '#a1a1aa' }}>Email</span>
+      </div>
+      <div
+        className="mb-4 rounded-lg border border-[#e2e2e8] px-3 py-2.5"
+        style={{ height: 36, background: '#fafafa' }}
+      >
+        <span style={{ fontSize: 12, color: '#a1a1aa' }}>Password</span>
+      </div>
+
+      <div
+        className="mb-5 flex items-center gap-2"
+        style={highlight('toggle')}
+      >
+        <div
+          style={{
+            width: 44,
+            height: 26,
+            borderRadius: 13,
+            background: platform === 'ios' ? '#34C759' : '#6750A4',
+            position: 'relative',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: 2,
+              right: 2,
+              width: 22,
+              height: 22,
+              borderRadius: 11,
+              background: '#fff',
+            }}
+          />
+        </div>
+        <span style={{ fontSize: 13, color: t.brandInk }}>Remember me</span>
+      </div>
+
+      <div style={highlight('signIn')}>
+        <button
+          type="button"
+          style={{
+            width: '100%',
+            background: t.brandPrimary,
+            borderRadius: 12,
+            padding: '14px 0',
+            border: 'none',
+          }}
+        >
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>
+            Sign In
+          </span>
+        </button>
+      </div>
+
+      <div className="mt-4 text-center" style={highlight('forgot')}>
+        <span
+          style={{
+            fontSize: 12,
+            color: platform === 'android' ? t.forgotColor : t.textSecondary,
+          }}
+        >
+          Forgot password?
+        </span>
+      </div>
+    </div>
+  )
+
+  const frame = platform === 'ios' ? (
+    <XcodeCanvas device={t.device} schematic>
+      <IPhoneFrame>{screen}</IPhoneFrame>
+    </XcodeCanvas>
+  ) : (
+    <StudioCanvas device={t.device}>
+      <PixelFrame>{screen}</PixelFrame>
+    </StudioCanvas>
+  )
+
+  return frame
+}
+
 interface LoginPreviewProps {
   platform: 'ios' | 'android'
+  variant?: 'login' | 'daily-goals'
+  rulebook?: Record<string, string>
   activeInconsistency: Inconsistency | null
   inconsistencies: Inconsistency[]
 }
 
+type LoginElementKey = 'heading' | 'signIn' | 'forgot' | 'toggle'
+
+function loginElementFor(item: Inconsistency): LoginElementKey | null {
+  const p = item.property.toLowerCase()
+  if (p.includes('brand') || p.includes('primary')) return 'signIn'
+  if (p.includes('hardcoded') || p.includes('forgot')) return 'forgot'
+  if (p.includes('toggle')) return 'toggle'
+  return null
+}
+
 export default function LoginPreview({
   platform,
+  variant = 'daily-goals',
+  rulebook = {},
   activeInconsistency,
   inconsistencies,
 }: LoginPreviewProps) {
   const v = PLATFORM_VALUES[platform]
   const [waterGlasses, setWaterGlasses] = useState(3)
   const [workoutDone, setWorkoutDone] = useState(false)
+
+  if (variant === 'login') {
+    return (
+      <LoginSchematicPreview
+        platform={platform}
+        rulebook={rulebook}
+        activeInconsistency={activeInconsistency}
+        inconsistencies={inconsistencies}
+      />
+    )
+  }
 
   const activeElement =
     activeInconsistency?.status === 'open'
@@ -412,7 +585,15 @@ export function ScaleToFit({
 
 // ── IDE canvas chrome ──────────────────────────────────────────────────────────
 
-function XcodeCanvas({ device, children }: { device: string; children: ReactNode }) {
+function XcodeCanvas({
+  device,
+  children,
+  schematic = false,
+}: {
+  device: string
+  children: ReactNode
+  schematic?: boolean
+}) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ background: '#2b2b2e' }}>
       {/* Canvas toolbar */}
@@ -425,11 +606,11 @@ function XcodeCanvas({ device, children }: { device: string; children: ReactNode
             <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-2 6l7 4-7 4V8z" />
           </svg>
           <span style={{ fontSize: 10.5, color: '#c7c7cc', fontFamily: 'ui-sans-serif, system-ui' }}>
-            Preview
+            {schematic ? 'Schematic preview' : 'Preview'}
           </span>
         </div>
         <span style={{ fontSize: 10, color: '#8e8e93', fontFamily: 'ui-monospace, monospace' }}>
-          Xcode
+          {schematic ? 'SwiftUI mock' : 'Xcode'}
         </span>
       </div>
 
@@ -510,7 +691,7 @@ function InconsistencyPill({
   label,
   color,
 }: {
-  expected: string
+  expected?: string | null
   actual: string
   label: string
   color: string
@@ -533,7 +714,7 @@ function InconsistencyPill({
       <span style={{ color: '#9899b8' }}>{label}</span>
       <span style={{ color: '#fb7185' }}>{actual}</span>
       <span style={{ color: '#6b7280' }}>→</span>
-      <span style={{ color: '#4ade80' }}>{expected}</span>
+      <span style={{ color: '#4ade80' }}>{expected ?? '—'}</span>
     </div>
   )
 }

@@ -9,27 +9,38 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from pathlib import Path
 
 from .base import Runner, RunnerError
 
 _TEXT_FIELDS = ("result", "text", "response", "content", "message", "output")
 
 
+def _find_binary() -> str:
+    found = shutil.which("cursor-agent")
+    if found:
+        return found
+    local = Path.home() / ".local" / "bin" / "cursor-agent"
+    if local.is_file():
+        return str(local)
+    raise RunnerError(
+        "cursor-agent not found. Install it with:\n"
+        "  curl https://cursor.com/install -fsS | bash\n"
+        "then log in with the team's Cursor subscription (cursor-agent login)."
+    )
+
+
 class CursorRunner(Runner):
     name = "cursor"
 
     def __init__(self, model: str = "auto", timeout_s: int = 120):
-        if shutil.which("cursor-agent") is None:
-            raise RunnerError(
-                "cursor-agent not found on PATH. Install it with:\n"
-                "  curl https://cursor.com/install -fsS | bash\n"
-                "then log in with the team's Cursor subscription (cursor-agent login)."
-            )
+        self.binary = _find_binary()
         self.model = model
         self.timeout_s = timeout_s
 
     def complete(self, prompt: str, *, key: str | None = None, timeout_s: int = 120) -> str:
-        cmd = ["cursor-agent", "-p", prompt, "--output-format", "json"]
+        # --trust: headless runs must not stop at the workspace-trust prompt
+        cmd = [self.binary, "-p", prompt, "--output-format", "json", "--trust"]
         if self.model and self.model != "auto":
             cmd += ["--model", self.model]
         try:

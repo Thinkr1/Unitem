@@ -1,7 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import type { Inconsistency, Severity } from './types'
 import { mockComparison } from './mockData'
+import {
+  acceptFinding,
+  analyzePair,
+  fetchComparison,
+  overrideFinding,
+  rescan,
+} from './lib/api'
 import ScreenPanel, { type LinePulse } from './components/ScreenPanel'
 import InconsistenciesPanel, {
   type Filter,
@@ -18,10 +25,10 @@ const SEVERITY_RANK: Record<Severity, number> = { error: 3, warning: 2, info: 1 
 const PAGE_META: Record<NavPage, { title: string; subtitle: string }> = {
   overview: {
     title: 'Overview',
-    subtitle: 'Daily Goals consistency at a glance',
+    subtitle: 'Consistency at a glance',
   },
   comparison: {
-    title: 'Daily Goals',
+    title: 'Comparison',
     subtitle: 'Ready to reconcile iOS & Android?',
   },
   agents: {
@@ -66,9 +73,17 @@ function ResizeHandle() {
 export default function App() {
   const [view, setView] = useState<'paste' | 'dashboard'>('paste')
   const [page, setPage] = useState<NavPage>('comparison')
+  const [screenName, setScreenName] = useState('login')
+  const [rulebook, setRulebook] = useState<Record<string, string>>(
+    mockComparison.rulebook,
+  )
+  const [iosPanelMeta, setIosPanelMeta] = useState(mockComparison.ios)
+  const [androidPanelMeta, setAndroidPanelMeta] = useState(mockComparison.android)
   const [iosCode, setIosCode] = useState(mockComparison.ios.code)
   const [androidCode, setAndroidCode] = useState(mockComparison.android.code)
+  const [androidPreview, setAndroidPreview] = useState<string | undefined>()
   const [rescanNonce, setRescanNonce] = useState(0)
+  const [rescanning, setRescanning] = useState(false)
 
   const [items, setItems] = useState<Inconsistency[]>(
     mockComparison.inconsistencies,
@@ -78,22 +93,71 @@ export default function App() {
   const [iosPulse, setIosPulse] = useState<LinePulse | null>(null)
   const [androidPulse, setAndroidPulse] = useState<LinePulse | null>(null)
 
-  const onResolve = (id: string) => {
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, status: 'resolved' } : i)),
-    )
+  const applyComparison = (result: NonNullable<Awaited<ReturnType<typeof fetchComparison>>>) => {
+    setItems(result.inconsistencies)
+    setIosCode(result.ios.code)
+    setAndroidCode(result.android.code)
+    setAndroidPreview(result.android.previewCode)
+    setIosPanelMeta(result.ios)
+    setAndroidPanelMeta(result.android)
+    if (result.screen) setScreenName(result.screen)
+    if (result.rulebook) setRulebook(result.rulebook)
   }
 
-  const onIgnore = (id: string) => {
+  const refreshFromEngine = async () => {
+    const result = await fetchComparison(screenName)
+    if (result) applyComparison(result)
+  }
+
+  // On load, pull the engine's latest state (tickets from the last `unitem
+  // diff` run + the mapped screens' real source). Falls back to the mock.
+  useEffect(() => {
+    fetchComparison().then((result) => {
+      if (result && result.inconsistencies.length > 0) {
+        applyComparison(result)
+        setView('dashboard') // engine has judged tickets — go straight to review
+      }
+    })
+  }, [])
+
+  // Rescan = run the real pipeline (discover -> map -> judge agents -> fixes).
+  const onRescan = async () => {
+    setRescanning(true)
+    const result = await rescan(screenName)
+    if (result) applyComparison(result)
+    setRescanning(false)
+    setRescanNonce((n) => n + 1) // remount the preview so it recompiles
+  }
+
+  const onResolve = async (id: string) => {
+    const updated = await acceptFinding(id) // engine applies the fix / opens PR
     setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, status: 'ignored' } : i)),
+      prev.map((i) =>
+        i.id === id ? (updated ?? { ...i, status: 'resolved' }) : i,
+      ),
+    )
+    await refreshFromEngine()
+    setRescanNonce((n) => n + 1)
+  }
+
+  const onIgnore = async (id: string) => {
+    const updated = await overrideFinding(id, 'hold', 'dismissed from console')
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === id ? (updated ?? { ...i, status: 'ignored' }) : i,
+      ),
     )
   }
 
   const onResolveAll = () => {
-    setItems((prev) =>
-      prev.map((i) => (i.status === 'open' ? { ...i, status: 'resolved' } : i)),
-    )
+    for (const item of items) {
+      if (
+        item.status === 'open' &&
+        (item.verdict === 'flag' || !item.verdict)
+      ) {
+        void onResolve(item.id)
+      }
+    }
   }
 
   const onSelect = (item: Inconsistency) => {
@@ -108,20 +172,33 @@ export default function App() {
     setPage('comparison')
   }
 
-  const onAnalyze = (payload: { iosCode: string; androidCode: string }) => {
+  const onAnalyze = async (payload: { iosCode: string; androidCode: string }) => {
     setIosCode(payload.iosCode)
     setAndroidCode(payload.androidCode)
     setPage('comparison')
     setView('dashboard')
+    const result = await analyzePair(payload.iosCode, payload.androidCode)
+    if (result) applyComparison(result)
   }
 
   const active = items.find((i) => i.id === activeId) ?? null
-  const iosPanel = { ...mockComparison.ios, code: iosCode }
-  const androidPanel = { ...mockComparison.android, code: androidCode }
-  const openErrors = items.filter(
-    (i) => i.status === 'open' && i.severity === 'error',
+  const iosPanel = { ...iosPanelMeta, code: iosCode }
+  const androidPanel = {
+    ...androidPanelMeta,
+    code: androidCode,
+    previewCode: androidPreview,
+  }
+  const openFlags = items.filter(
+    (i) =>
+      i.status === 'open' &&
+      i.verdict !== 'hold' &&
+      (i.verdict === 'flag' || !i.verdict),
   ).length
-  const meta = PAGE_META[page]
+  const screenLabel = screenName.charAt(0).toUpperCase() + screenName.slice(1)
+  const meta =
+    page === 'comparison'
+      ? { title: screenLabel, subtitle: PAGE_META.comparison.subtitle }
+      : PAGE_META[page]
 
   if (view === 'paste') {
     return (
@@ -178,8 +255,9 @@ export default function App() {
 
           {page === 'comparison' && (
             <button
-              onClick={() => setRescanNonce((n) => n + 1)}
-              className="flex items-center gap-1.5 rounded-full bg-info-blue px-4 py-2 font-heading text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
+              onClick={onRescan}
+              disabled={rescanning}
+              className="flex items-center gap-1.5 rounded-full bg-info-blue px-4 py-2 font-heading text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
             >
               <svg
                 width="14"
@@ -194,7 +272,7 @@ export default function App() {
               >
                 <path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4" />
               </svg>
-              Rescan
+              {rescanning ? 'Agents running…' : 'Rescan'}
             </button>
           )}
         </div>
@@ -204,7 +282,7 @@ export default function App() {
         <NavRail
           page={page}
           onNavigate={setPage}
-          alertCount={openErrors}
+          alertCount={openFlags}
         />
 
         {page === 'comparison' ? (
@@ -216,6 +294,7 @@ export default function App() {
               <ScreenPanel
                 panel={iosPanel}
                 title="iOS · Swift"
+                rulebook={rulebook}
                 flaggedLines={flaggedLines(items, 'ios')}
                 activeLine={active?.ios.line ?? null}
                 pulse={iosPulse}
@@ -229,6 +308,7 @@ export default function App() {
                 key={`android-${rescanNonce}`}
                 panel={androidPanel}
                 title="Android · Dart"
+                rulebook={rulebook}
                 flaggedLines={flaggedLines(items, 'android')}
                 activeLine={active?.android.line ?? null}
                 pulse={androidPulse}
@@ -255,7 +335,7 @@ export default function App() {
         ) : page === 'agents' ? (
           <AgentsPage />
         ) : page === 'rulebook' ? (
-          <RulebookPage rulebook={mockComparison.rulebook} items={items} />
+          <RulebookPage rulebook={rulebook} items={items} />
         ) : (
           <AlertsPage
             items={items}

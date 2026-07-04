@@ -57,6 +57,18 @@ class Store:
         raise HTTPException(status_code=404, detail=f"no ticket {ticket_id}")
 
 
+def _slice_for(cfg: Config, change) -> str:
+    loc = change.counterpart_location
+    path = cfg.root / loc.file
+    if not path.is_file():
+        return "(file not found)"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if len(lines) <= 80:
+        return "\n".join(f"{i + 1:>4}  {t}" for i, t in enumerate(lines))
+    lo, hi = max(0, loc.line - 16), min(len(lines), loc.line + 15)
+    return "\n".join(f"{i + 1:>4}  {t}" for i, t in enumerate(lines[lo:hi], start=lo))
+
+
 def humanize(name: str) -> str:
     """'color.brandPrimary' -> 'Brand primary'."""
     tail = name.split(".")[-1].split(" ")[0]
@@ -155,12 +167,35 @@ def _panel(cfg: Config, platform: str, screen: str) -> dict:
     if file is None:
         file = f"examples/{platform}/LoginView.swift"
     path = cfg.root / file
-    return {
+    code = path.read_text(encoding="utf-8") if path.is_file() else "// (file not found)"
+    panel = {
         "platform": platform,
         "language": _SUFFIX_LANGUAGE.get(Path(file).suffix, "swift"),
         "fileName": Path(file).name,
-        "code": path.read_text(encoding="utf-8") if path.is_file() else "// (file not found)",
+        "code": code,
     }
+    if path.suffix == ".dart":
+        preview = _flatten_dart_for_preview(code, path)
+        if preview:
+            panel["previewCode"] = preview
+    return panel
+
+
+def _flatten_dart_for_preview(code: str, screen_path: Path) -> str | None:
+    """DartPad is a single-file sandbox: inline local imports (theme.dart) so
+    the real screen actually compiles and renders in the preview."""
+    local_imports = re.findall(r"import\s+'(?!package:)([^']+)';", code)
+    if not local_imports:
+        return None
+    inlined_parts = []
+    for rel in local_imports:
+        dep = screen_path.parent / rel
+        if not dep.is_file():
+            return None
+        dep_code = re.sub(r"import\s+'package:flutter/[^']+';\n?", "", dep.read_text(encoding="utf-8"))
+        inlined_parts.append(dep_code.strip())
+    flattened = re.sub(r"import\s+'(?!package:)[^']+';\n?", "", code)
+    return flattened.rstrip() + "\n\n// ── inlined for preview ──\n" + "\n\n".join(inlined_parts) + "\n"
 
 
 def _rulebook(cfg: Config) -> dict[str, str]:
@@ -193,6 +228,42 @@ def create_app(cfg: Config) -> FastAPI:
             "inconsistencies": [ticket_to_ui(t, cfg) for t in store.tickets.tickets],
             "rulebook": _rulebook(cfg),
         }
+
+    @app.post("/rescan")
+    def rescan(screen: str = "login") -> dict:
+        """Run the full pipeline live: discover -> map -> judge fan-out -> fix previews.
+        With runner=cursor this spawns one agent per change (takes a minute);
+        with runner=mock it replays recorded model responses."""
+        from .aggregate import assign_ids, dedupe, sort_tickets
+        from .diffing import detect_changes
+        from .generate import generate_fix
+        from .judge import JudgeContext, judge_all, load_overrides, load_rules
+        from .runner import get_runner
+
+        changes = detect_changes(cfg)
+        ctx = JudgeContext(
+            rules=load_rules(cfg.conventions),
+            agent_md=cfg.read_agent_md(),
+            overrides=load_overrides(cfg.overrides_file),
+            mode="diff",
+            counterpart_slices={
+                c.id: _slice_for(cfg, c) for c in changes if c.counterpart_location
+            },
+            timeout_s=cfg.runner.timeout_s,
+        )
+        runner = get_runner(cfg)
+        tickets = sort_tickets(dedupe(judge_all(changes, ctx, runner, cfg.runner.concurrency)))
+        with store.lock:
+            previous = store.tickets if store.tickets.tickets else None
+            tickets = assign_ids(tickets, previous)
+            for ticket in tickets:
+                if ticket.verdict in ("propagate", "flag") and ticket.proposed_fix is None:
+                    ticket.proposed_fix = generate_fix(ticket, cfg)
+            store.tickets = TicketFile(
+                run_id=time.strftime("%Y%m%d-%H%M%S"), mode="diff", screen=screen, tickets=tickets
+            )
+            store.save()
+        return comparison(screen)
 
     @app.post("/analyze")
     def analyze(body: AnalyzeBody) -> dict:
