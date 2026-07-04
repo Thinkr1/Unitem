@@ -91,12 +91,16 @@ unitem.yaml (config) · conventions/ (shipped KB) · agent.md (project design sp
 └────────────────────────────────────────────────────────────────────┘
         │
         ▼
-┌─ 4. RECONCILE (act on verdicts) ───────────────────────────────────┐
-│  Propagate → generator agent emits the counterpart source edit     │
-│              → git branch + PR on the target repo                  │
-│  Flag      → ticket with proposed one-line fix                     │
-│  Hold      → explanation record (the "money moment" — why the      │
-│              difference is correct)                                │
+┌─ 4. RECONCILE (act on verdicts — two propagate paths) ─────────────┐
+│  Propagate, token change   → update canonical token source →       │
+│      Style Dictionary regenerates both platforms' token files →    │
+│      PR with regenerated files (mechanical, can't fail to compile) │
+│  Propagate/Flag, code edit → dispatch a Cursor Cloud Agent into    │
+│      the target repo: it makes the edit, verifies it builds, and   │
+│      opens the PR natively                                         │
+│  Flag (unaccepted)         → ticket with proposed one-line fix     │
+│  Hold                      → explanation record (the "money        │
+│      moment" — why the difference is correct)                      │
 └────────────────────────────────────────────────────────────────────┘
         │
         ▼
@@ -136,11 +140,12 @@ Judgment is grounded in three sources, in priority order:
 |---|---|---|
 | Parse Swift/Kotlin structure | **tree-sitter** (swift + kotlin grammars) + targeted regex extractors | Existing — never write a parser |
 | Screen-mapping similarity | Path/name/route/string-key heuristics (stdlib) + one LLM reconciliation pass | Trivial glue |
-| Agent execution | **Cursor headless CLI** (`cursor-agent -p --output-format json`) — sponsor-track alignment | Existing; we write only the runner wrapper |
+| Judge/Map agent execution | **Cursor headless CLI** (`cursor-agent -p --output-format json`) — parallel fan-out, schema-validated | Existing; we write only the runner wrapper |
+| Fix execution + PR | **Cursor Cloud Agents API** — one agent per accepted fix, dispatched *into the target repo*: edits, verifies the build, opens the PR natively | Existing — and it deletes our #1 risk (non-compiling code-gen), since the agent can compile and iterate before opening the PR |
 | Provider abstraction | Runner interface with three impls: `cursor` (default), `anthropic` (Claude API fallback), `mock` (fixtures, offline dev/CI/stage-fallback) | Thin wrapper we own |
 | Deterministic checks | WCAG contrast math, scale-membership check | A few lines each — cheap rigor that grounds Flag verdicts in hard numbers |
-| Token translation (Propagate output) | Hand-templated for the demo; **Style Dictionary** name-checked as the mechanical layer we add judgment on top of | Existing |
-| PR dispatch | git + GitHub CLI/API on our own repos | Existing |
+| Token propagation | **Style Dictionary** — the sample apps' token files (`Theme.swift`, `Color.kt`) are *generated* from one canonical token source; an accepted token-level Propagate updates the source and regenerates both platforms mechanically | Existing — we are literally the judgment layer on top of it, which turns the pitch line into a demonstrated fact |
+| PR dispatch (fallback path) | git + GitHub CLI/API on our own repos | Existing; used if Cloud Agents are unavailable |
 | Review console | **Existing `/UI` app** (React 19 + Vite + Electron, three resizable line-linked panels) fed by the engine's local API | Already built — we extend its data contract, not its layout |
 
 **Reliability engineering** (adopted from the fan-out design):
@@ -149,7 +154,17 @@ Judgment is grounded in three sources, in priority order:
 - Dedupe + stable finding IDs across runs; file-hash caching so unchanged sections aren't re-analyzed.
 - `--mock` runner makes the entire pipeline runnable with zero API keys — the team develops offline and it's the stage fallback.
 
-**Orchestration stays lean:** one planner, ~3 tools (read facts, retrieve conventions, run deterministic check), 2 sub-agents (classifier, generator). A small loop that runs end-to-end beats a 10-agent architecture that half-works on stage.
+**Agent roster** — separation of concerns, each agent with narrow context, orchestrated by deterministic code:
+
+| Agent | Runtime | Scope of one invocation |
+|---|---|---|
+| **Orchestrator** | Plain Python (NOT an LLM) | Control flow, fan-out, bounded concurrency, retries, schema validation — determinism lives in code |
+| **Mapper** | Cursor headless CLI | Reconcile one batch of ambiguous screen pairs the heuristics couldn't settle |
+| **Judge** (fan-out, N in parallel) | Cursor headless CLI | One atomic change (diff mode) or one mapped section (audit mode) + retrieved KB rules + override precedents → verdict, reason, confidence, cited rules |
+| **Fixer** (one per accepted fix) | **Cursor Cloud Agent** in the target repo | Make the edit, verify it builds, open the PR |
+| *Critic (stretch)* | Cursor headless CLI | Adversarial second opinion on low-confidence verdicts before they reach the human |
+
+Deterministic tools available to the Judge: read extracted facts, retrieve convention rules, WCAG contrast check, scale-membership check. Guardrail stands: this roster is the cap, not the floor — a bounded set of specialized agents that runs end-to-end beats a 10-agent mesh that half-works on stage.
 
 ---
 
@@ -292,7 +307,8 @@ interface ComparisonResult {
 
 | Risk | Mitigation |
 |---|---|
-| Generated code doesn't compile (biggest) | Only the 3 rehearsed changes must be bulletproof; generator scoped to token-value edits; rehearse |
+| Generated code doesn't compile (biggest) | Token propagates are Style Dictionary regeneration (mechanical); code edits run as Cursor Cloud Agents that build-verify before opening the PR; only the 3 rehearsed changes must be bulletproof; rehearse |
+| Cursor Cloud Agents API unavailable/limited on stage | Fallback path: local generator + git/GitHub CLI PR; `--mock` replays recorded runs |
 | Live agent calls flake on stage | `--mock` runner replays recorded real outputs; pre-captured screenshots |
 | Cursor CLI/API access issues | Provider abstraction → swap to Claude API without touching the pipeline |
 | LLM output non-determinism | Strict schema validation, retries, low-confidence-flag fallback, dedupe, caching |
