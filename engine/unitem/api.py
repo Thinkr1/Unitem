@@ -402,6 +402,7 @@ def create_app(cfg: Config) -> FastAPI:
             result = run_transfer(
                 cfg, runner, screen=screen,
                 on_stage=lambda stg, detail: progress.set(stg, detail),
+                record_dir=cfg.out_dir / "transfer",
             )
             if result.ok:
                 progress.event(

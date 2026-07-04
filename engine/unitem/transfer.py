@@ -75,6 +75,28 @@ LOGO_PLACEHOLDER_DART = (
 )
 _IMAGE_ASSET_RE = re.compile(r"(?:const\s+)?Image\.asset\([^)]*\)")
 
+# User-visible string literals in SwiftUI: the first string arg of a copy-bearing
+# view. Excludes Image("asset"), .font(.custom("Family")), Color("name"), etc.,
+# because those are identifiers, not copy. This is GROUND TRUTH for text — the
+# transfer must reproduce these verbatim, so we extract them deterministically
+# instead of trusting an LLM to transcribe (LLMs "auto-correct" odd-looking copy).
+_VISIBLE_COPY_RE = re.compile(
+    r'\b(?:Text|Button|TextField|SecureField|Toggle|Label|Link|Menu|NavigationLink|Section)'
+    r'\s*\(\s*"((?:[^"\\]|\\.)*)"'
+)
+
+
+def extract_ios_copy(ios_code: str) -> list[str]:
+    """Deterministically pull user-visible copy from SwiftUI source, in order,
+    deduplicated. Empty strings are skipped."""
+    seen: list[str] = []
+    for match in _VISIBLE_COPY_RE.finditer(ios_code):
+        literal = match.group(1)
+        if literal and literal not in seen:
+            seen.append(literal)
+    return seen
+
+
 OnStage = Callable[[str, str], None]
 
 
@@ -155,9 +177,12 @@ def build_writer_prompt(
             "## Your previous output failed verification — fix ALL of these:\n\n"
             + "\n".join(f"- {f}" for f in failures)
         )
+    ios_copy = extract_ios_copy(_read(files["ios_screen"]))
+    ios_copy_block = "\n".join(f'- "{s}"' for s in ios_copy) or "(none found)"
     return (
         template.replace("{design_spec}", spec.model_dump_json(indent=2))
         .replace("{ios_screen_code}", _read(files["ios_screen"]))
+        .replace("{ios_copy}", ios_copy_block)
         .replace("{flutter_screen_path}", _rel(cfg, files["flutter_screen"]))
         .replace("{flutter_screen_code}", _read(files["flutter_screen"]))
         .replace("{flutter_theme_path}", _rel(cfg, files["flutter_theme"]))
@@ -236,6 +261,18 @@ def verify_output(
         base = _normalize(str(family).split("-")[0])
         if base and base not in combined_norm:
             soft.append(f"spec font family {family} does not appear in the generated code")
+
+    # text parity against GROUND TRUTH — the iOS source's own string literals,
+    # NOT the reader's spec (the reader may "auto-correct" odd-looking copy).
+    # Every visible iOS string must appear verbatim in the generated screen;
+    # a miss feeds the repair round. Exact substring (quote-agnostic) so
+    # "exact change" means exact.
+    for literal in extract_ios_copy(_read(files["ios_screen"])):
+        if literal not in combined:
+            soft.append(
+                f'iOS copy "{literal}" is missing from the generated screen — '
+                "reproduce it verbatim (do not normalize or correct it)"
+            )
 
     return hard, soft
 
