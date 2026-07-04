@@ -137,6 +137,54 @@ def test_resolve_screen_files_finds_the_demo_pair(tmp_path):
     assert files["pubspec"] and files["pubspec"].name == "pubspec.yaml"
 
 
+def test_panel_resolves_transferred_screen_without_recognized_components(tmp_path):
+    """Regression: after a transfer regenerates the Flutter screen with widgets
+    outside the extractor's component list, GET /comparison must still show the
+    real transferred screen — never silently fall back to a bundled sample file
+    (which showed the Kotlin sample / '// (file not found)') — and the iOS panel
+    must keep the user's own source."""
+    from fastapi.testclient import TestClient
+    from unitem.api import create_app
+
+    cfg = _cfg(tmp_path)
+    # bundled examples are present, so the OLD fallback path would have masked
+    # the bug by showing examples/android/LoginScreen.kt instead of failing
+    shutil.copytree(REPO_ROOT / "examples", tmp_path / "examples")
+
+    # the user has edited their own iOS screen
+    ios_screen = cfg.ios_root / "Sources" / "LoginView.swift"
+    ios_screen.write_text(
+        ios_screen.read_text().replace(".padding(.vertical, 16)", ".padding(.vertical, 20)")
+    )
+
+    # simulate a transfer landing a screen that uses no recognized component
+    # keyword (TextFormField/FilledButton, no Scaffold/TextField/ElevatedButton)
+    screen = cfg.android_root / "lib" / "login_screen.dart"
+    screen.write_text(
+        "import 'package:flutter/material.dart';\n"
+        "import 'theme.dart';\n\n"
+        "class LoginScreen extends StatelessWidget {\n"
+        "  const LoginScreen({super.key});\n"
+        "  @override\n"
+        "  Widget build(BuildContext context) => SafeArea(child: Column(children: [\n"
+        "    TextFormField(decoration: const InputDecoration(labelText: 'Email')),\n"
+        "    FilledButton(onPressed: () {}, child: const Text('Sign In')),\n"
+        "  ]));\n"
+        "}\n"
+    )
+
+    client = TestClient(create_app(cfg))
+    payload = client.get("/comparison?screen=login").json()
+
+    assert payload["android"]["fileName"] == "login_screen.dart"
+    assert payload["android"]["language"] == "dart"
+    assert "FilledButton" in payload["android"]["code"]
+    assert "(file not found)" not in payload["android"]["code"]
+
+    assert payload["ios"]["fileName"] == "LoginView.swift"
+    assert ".padding(.vertical, 20)" in payload["ios"]["code"]
+
+
 def test_debug_reset_restores_legacy_android(tmp_path):
     from fastapi.testclient import TestClient
     from unitem.api import create_app

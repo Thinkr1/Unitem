@@ -203,6 +203,15 @@ def _panel(cfg: Config, platform: str, screen: str) -> dict:
             file = files[0]
             break
     if file is None:
+        # The mapping heuristic can miss a real screen (e.g. an agent-
+        # regenerated file the extractors don't fully recognise). Before
+        # falling back to bundled sample data, look for the screen by stem in
+        # the actual platform tree — never show an unrelated example when the
+        # user's own repo clearly holds the screen.
+        stem_match = _find_screen_by_stem(cfg, platform, screen)
+        if stem_match is not None:
+            file = str(stem_match.relative_to(cfg.root))
+    if file is None:
         mapping_path = cfg.root / "examples" / "mapping.json"
         if mapping_path.is_file():
             data = json.loads(mapping_path.read_text(encoding="utf-8"))
@@ -228,6 +237,26 @@ def _panel(cfg: Config, platform: str, screen: str) -> dict:
         if preview:
             panel["previewCode"] = preview
     return panel
+
+
+def _find_screen_by_stem(cfg: Config, platform: str, screen: str) -> Path | None:
+    """Best-effort: find a source file in the platform tree whose normalized
+    stem matches the requested screen (e.g. 'login' -> LoginView.swift /
+    login_screen.dart). Skips theme files so it never mistakes them for a screen."""
+    from .mapping import normalize_stem
+
+    root = cfg.ios_root if platform == "ios" else cfg.android_root
+    if not root.is_dir():
+        return None
+    patterns = ("*.swift",) if platform == "ios" else ("*.dart", "*.kt")
+    for pattern in patterns:
+        for path in sorted(root.rglob(pattern)):
+            name = path.name.lower()
+            if name in ("theme.swift", "theme.dart", "color.kt", "type.kt"):
+                continue
+            if normalize_stem(path.name) == screen:
+                return path
+    return None
 
 
 def _theme_file(cfg: Config, platform: str, suffix: str) -> Path | None:
