@@ -38,7 +38,9 @@ export function themeFromRulebook(rulebook: Record<string, string>): string {
 }`
 }
 
-/** Strip relative imports and prepend inlined companion sources for DartPad. */
+/** Strip relative imports and inline companion sources for DartPad.
+ *  The companion body is appended AFTER the code — Dart requires all `import`
+ *  directives to come first, so prepending would be a compile error. */
 export function inlineDartImports(
   code: string,
   companions: Record<string, string>,
@@ -50,7 +52,7 @@ export function inlineDartImports(
     )
     if (importRe.test(out)) {
       out = out.replace(importRe, '')
-      out = `${body.trim()}\n\n${out}`
+      out = `${out.trimEnd()}\n\n// ── inlined for preview ──\n${body.trim()}\n`
     }
   }
   return out

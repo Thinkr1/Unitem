@@ -15,7 +15,7 @@ def test_dart_extraction_on_flutter_sample():
     assert defs["radiusButton"] == "12"
 
     screen = extract_file(REPO_ROOT / "sample-flutter/lib/login_screen.dart", "android")
-    assert [f.value for f in screen if f.kind == "color"] == ["#5A55F2"]
+    assert [f.value for f in screen if f.kind == "color"] == ["#22C55E"]
     assert "Switch" in {f.value for f in screen if f.kind == "component"}
     assert "Forgot password?" in {f.value for f in screen if f.kind == "copy"}
 

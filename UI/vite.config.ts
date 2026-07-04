@@ -8,4 +8,12 @@ export default defineConfig({
   // WebView (capacitor:// on iOS, https://localhost on Android) and Electron.
   base: './',
   plugins: [react(), tailwindcss()],
+  server: {
+    watch: {
+      // WSL2 working on /mnt/* (Windows drive) doesn't deliver inotify events —
+      // without polling, the dev server silently serves stale code forever.
+      usePolling: true,
+      interval: 400,
+    },
+  },
 })

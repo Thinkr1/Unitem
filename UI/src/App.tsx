@@ -14,6 +14,7 @@ import InconsistenciesPanel, {
   type Filter,
 } from './components/InconsistenciesPanel'
 import NavRail, { type NavPage } from './components/NavRail'
+import PipelineStrip from './components/PipelineStrip'
 import PasteScreen from './components/PasteScreen'
 import OverviewPage from './components/OverviewPage'
 import AgentsPage from './components/AgentsPage'
@@ -286,10 +287,9 @@ export default function App() {
         />
 
         {page === 'comparison' ? (
-          <Group
-            orientation="horizontal"
-            className="min-h-0 flex-1 pb-4 pr-4 pl-1"
-          >
+          <div className="flex min-h-0 flex-1 flex-col pb-4 pr-4 pl-1">
+            <PipelineStrip />
+            <Group orientation="horizontal" className="min-h-0 flex-1">
             <Panel defaultSize={34} minSize={18} className="!overflow-visible">
               <ScreenPanel
                 panel={iosPanel}
@@ -329,7 +329,8 @@ export default function App() {
                 onResolveAll={onResolveAll}
               />
             </Panel>
-          </Group>
+            </Group>
+          </div>
         ) : page === 'overview' ? (
           <OverviewPage items={items} />
         ) : page === 'agents' ? (

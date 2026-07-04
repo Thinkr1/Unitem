@@ -1,0 +1,162 @@
+- generic [ref=f27e28]:
+  - banner [ref=f27e29]:
+    - generic [ref=f27e30]:
+      - heading "Login" [level=1] [ref=f27e31]
+      - paragraph [ref=f27e32]: Ready to reconcile iOS & Android?
+    - generic [ref=f27e33]:
+      - button "Edit code" [ref=f27e34]
+      - generic [ref=f27e35]:
+        - img [ref=f27e36]
+        - textbox "Search for an inconsistency" [ref=f27e39]
+      - button "Rescan" [ref=f27e40]:
+        - img [ref=f27e41]
+        - text: Rescan
+  - generic [ref=f27e43]:
+    - navigation [ref=f27e44]:
+      - img [ref=f27e46]
+      - generic [ref=f27e48]:
+        - generic [ref=f27e49]:
+          - button "Overview" [ref=f27e50]:
+            - img [ref=f27e51]
+          - tooltip "Overview"
+        - generic [ref=f27e53]:
+          - button "Comparison" [ref=f27e54]:
+            - img [ref=f27e55]
+          - tooltip "Comparison"
+        - generic [ref=f27e58]:
+          - button "Agents" [ref=f27e59]:
+            - img [ref=f27e60]
+          - tooltip "Agents"
+        - generic [ref=f27e65]:
+          - button "Rulebook" [ref=f27e66]:
+            - img [ref=f27e67]
+          - tooltip "Rulebook"
+        - generic [ref=f27e70]:
+          - button "Alerts" [ref=f27e71]:
+            - img [ref=f27e72]
+          - tooltip "Alerts"
+      - generic [ref=f27e76]:
+        - button "Sign out" [ref=f27e77]:
+          - img [ref=f27e78]
+        - tooltip "Sign out"
+    - generic [ref=f27e82]:
+      - generic [ref=f27e85]:
+        - generic [ref=f27e86]:
+          - generic [ref=f27e87]:
+            - heading "iOS · Swift" [level=2] [ref=f27e88]
+            - generic [ref=f27e89]: LoginView.swift
+          - generic [ref=f27e90]:
+            - button "Visual" [ref=f27e91]
+            - button "Simulator" [ref=f27e92]
+            - button "Code" [ref=f27e93]
+        - generic [ref=f27e94]:
+          - generic [ref=f27e95]:
+            - generic [ref=f27e96]:
+              - img [ref=f27e97]
+              - generic [ref=f27e99]: Schematic preview
+            - generic [ref=f27e100]: SwiftUI mock
+          - generic [ref=f27e104]:
+            - generic [ref=f27e106]:
+              - generic [ref=f27e107]: 9:41
+              - img [ref=f27e109]
+            - generic [ref=f27e112]:
+              - paragraph [ref=f27e114]: Welcome back
+              - generic [ref=f27e115]: Email
+              - generic [ref=f27e116]: Password
+              - generic [ref=f27e120]: Remember me
+              - button "Sign In" [ref=f27e122]
+              - generic [ref=f27e123]: Forgot password?
+          - generic [ref=f27e126]:
+            - generic [ref=f27e127]:
+              - img [ref=f27e128]
+              - generic [ref=f27e130]: iPhone 15 Pro
+            - generic [ref=f27e131]: Selectable
+      - separator [ref=f27e132]
+      - generic [ref=f27e136]:
+        - generic [ref=f27e137]:
+          - generic [ref=f27e138]:
+            - heading "Android · Dart" [level=2] [ref=f27e139]
+            - generic [ref=f27e140]: login_screen.dart
+          - generic [ref=f27e141]:
+            - button "Visual" [ref=f27e142]
+            - button "Simulator" [ref=f27e143]
+            - button "Code" [ref=f27e144]
+        - generic [ref=f27e145]:
+          - generic [ref=f27e146]:
+            - generic [ref=f27e147]:
+              - generic [ref=f27e148]:
+                - generic [ref=f27e149]: Design
+                - generic [ref=f27e150]: Blueprint
+              - generic [ref=f27e153]: Pixel 7
+            - generic [ref=f27e154]: Android Studio
+          - generic [ref=f27e159]:
+            - generic [ref=f27e161]:
+              - generic [ref=f27e162]: 9:41
+              - img [ref=f27e164]
+            - iframe [active] [ref=f27e167]:
+              - generic [ref=f28e1]:
+                - button "Enable accessibility" [ref=f28e2]
+                - region "dartpad.dev uses cookies from Google to deliver and enhance the quality of its services and to analyze traffic." [ref=f28e3]:
+                  - paragraph [ref=f28e4]:
+                    - text: dartpad.dev uses cookies from Google to deliver and enhance the quality of its services and to analyze traffic.
+                    - link "Learn more about how Google uses cookies. Opens in a new tab." [ref=f28e5] [cursor=pointer]:
+                      - /url: https://policies.google.com/technologies/cookies?hl=en
+                      - text: Learn more
+                  - button "Understood" [ref=f28e6] [cursor=pointer]
+                - iframe [active] [ref=f28e12]:
+                  - button "Enable accessibility" [ref=f44e2]
+          - generic [ref=f27e170]:
+            - generic [ref=f27e171]: −
+            - generic [ref=f27e172]: 100%
+            - generic [ref=f27e173]: +
+      - separator [ref=f27e174]
+      - generic [ref=f27e178]:
+        - generic [ref=f27e179]:
+          - heading "Inconsistencies" [level=2] [ref=f27e180]
+          - button "Resolve all" [ref=f27e181]
+        - generic [ref=f27e182]:
+          - generic [ref=f27e183]:
+            - img [ref=f27e184]
+            - generic [ref=f27e188]: 0%
+          - generic [ref=f27e189]:
+            - generic [ref=f27e190]:
+              - generic [ref=f27e191]: Consistency score
+              - generic [ref=f27e192]: 0/1 resolved
+            - generic [ref=f27e194]:
+              - generic [ref=f27e197]: 0 propagate
+              - generic [ref=f27e200]: 0 hold
+              - generic [ref=f27e203]: 1 flag
+        - generic [ref=f27e204]:
+          - button "All" [ref=f27e205]
+          - button "Propagate" [ref=f27e206]
+          - button "Hold" [ref=f27e207]
+          - button "Flag" [ref=f27e208]
+          - button "Ignored" [ref=f27e209]
+        - article [ref=f27e211] [cursor=pointer]:
+          - generic [ref=f27e212]:
+            - generic [ref=f27e213]: warning
+            - generic [ref=f27e214]:
+              - generic [ref=f27e216]: Hardcoded
+              - generic [ref=f27e217]: "Button(\"Forgot password?\") {}·#5A55F2→color.textSecondary (#8A8BB3)"
+            - generic [ref=f27e218]: 95%
+          - generic [ref=f27e219]:
+            - paragraph [ref=f27e220]: "Android hardcoded #5A55F2 on \"Forgot password?\" instead of the shared textSecondary token. The project spec assigns that link role to #8A8BB3, and iOS already uses Theme.textSecondary correctly—do not copy this change; fix Android to use the token."
+            - paragraph [ref=f27e221]: flag/hardcoded-color
+            - generic [ref=f27e222]:
+              - generic [ref=f27e223]:
+                - generic [ref=f27e224]: "Rulebook expects:"
+                - generic [ref=f27e225]: color.textSecondary (#8A8BB3)
+              - generic [ref=f27e226]:
+                - generic [ref=f27e227]: iOS
+                - generic [ref=f27e228]: swift:42
+                - generic [ref=f27e229]: →
+                - generic [ref=f27e230]: "Button(\"Forgot password?\") {}"
+              - generic [ref=f27e231]:
+                - generic [ref=f27e232]: Android
+                - generic [ref=f27e233]: dart:76
+                - generic [ref=f27e234]: →
+                - generic [ref=f27e235]: "#5A55F2"
+            - generic [ref=f27e236]: "--- a/sample-flutter/lib/login_screen.dart +++ b/sample-flutter/lib/login_screen.dart @@ -73,7 +73,7 @@ const SizedBox(height: 12), const Text( 'Forgot password?', - style: TextStyle(fontSize: 13, color: Color(0xFF5A55F2)), + style: TextStyle(fontSize: 13, color: AppTheme.textSecondary), ), ], ),"
+            - generic [ref=f27e237]:
+              - button "Resolve" [ref=f27e238]
+              - button "Ignore" [ref=f27e239]

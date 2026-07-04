@@ -1,0 +1,8 @@
+{
+  "verdict": "propagate",
+  "severity": "high",
+  "confidence": 0.97,
+  "reason": "The brand primary token moved from indigo #4F46E5 to the new brand rose #E11D48 on iOS, matching the 2026 refresh in the project spec. Brand colors are shared identity — the Flutter theme still holds the old indigo and should be updated so both apps read as one brand.",
+  "convention_refs": ["propagate/brand-color", "flag/stale-token"],
+  "expected": null
+}

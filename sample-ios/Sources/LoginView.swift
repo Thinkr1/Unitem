@@ -27,7 +27,6 @@ struct LoginView: View {
             }
 
             Toggle("Remember me", isOn: $rememberMe)
-                .toggleStyle(.switch)
 
             Button(action: signIn) {
                 Text("Sign In")

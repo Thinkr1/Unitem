@@ -30,12 +30,14 @@ def replace_once(path: Path, old: str, new: str) -> None:
 
 
 def edit_1_propagate() -> None:
+    # Rose is visually unmistakable next to the old indigo — you can SEE the
+    # propagation land on the Android preview after accepting.
     replace_once(
         THEME,
         'static let brandPrimary = Color(hex: "#4F46E5")',
-        'static let brandPrimary = Color(hex: "#6366F1")',
+        'static let brandPrimary = Color(hex: "#E11D48")',
     )
-    print("scenario 1 (propagate): brand primary changed on iOS — Android is now stale.")
+    print("scenario 1 (propagate): brand primary indigo -> rose on iOS — Android is now stale.")
 
 
 def edit_2_hold() -> None:
@@ -52,10 +54,10 @@ def edit_3_flag() -> None:
     line_no = next(
         i
         for i, line in enumerate(LOGIN_ANDROID.read_text(encoding="utf-8").splitlines(), 1)
-        if "0xFF5A55F2" in line
+        if "0xFF22C55E" in line
     )
     print(
-        "scenario 3 (flag) is pre-seeded drift: hardcoded stale hex Color(0xFF5A55F2)\n"
+        "scenario 3 (flag) is pre-seeded drift: hardcoded green Color(0xFF22C55E)\n"
         f"at {LOGIN_ANDROID.relative_to(ROOT)}:{line_no} — surfaced by the screen cross-check."
     )
 
