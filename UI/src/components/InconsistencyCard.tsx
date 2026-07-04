@@ -1,4 +1,5 @@
 import type { Inconsistency } from '../types'
+import DiffView from './DiffView'
 import SeverityBadge from './SeverityBadge'
 import VerdictBadge from './VerdictBadge'
 
@@ -172,9 +173,16 @@ export default function InconsistencyCard({
             )}
 
             {item.proposedFix?.diff && (
-              <pre className="mt-2.5 max-h-40 overflow-auto rounded bg-well px-2.5 py-2 font-mono text-[10px] leading-relaxed text-code whitespace-pre-wrap">
-                {item.proposedFix.diff.trim()}
-              </pre>
+              <div className="mt-2.5">
+                <p className="mb-1 font-heading text-[10px] font-medium uppercase tracking-wide text-ink-faint">
+                  Proposed fix
+                </p>
+                <DiffView
+                  diff={item.proposedFix.diff}
+                  file={item.proposedFix.file}
+                  targetPlatform={item.proposedFix.targetPlatform}
+                />
+              </div>
             )}
 
             {item.prUrl && (
