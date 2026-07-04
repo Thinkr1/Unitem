@@ -1,0 +1,395 @@
+<title>Unitem · Agent Spawn Map</title>
+<style>
+  :root {
+    --bg: #f2f4f7;
+    --surface: #ffffff;
+    --well: #eaeef3;
+    --ink: #1c2430;
+    --muted: #5b6b7f;
+    --faint: #8b98a9;
+    --edge: #d8dee7;
+    --agent: #a86a0a;
+    --agent-strong: #8f5a06;
+    --agent-bg: #faf1df;
+    --agent-edge: #e3c58f;
+    --code: #2f5d8a;
+    --code-bg: #e7eef6;
+    --code-edge: #b9cde0;
+    --human: #2b7a55;
+    --human-bg: #e4f0e9;
+    --human-edge: #a9cfba;
+    --propagate: #2f5d8a;
+    --hold: #2b7a55;
+    --flag: #a83a32;
+    --spine: #c3ccd8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11151d;
+      --surface: #191f2a;
+      --well: #141922;
+      --ink: #e6ebf2;
+      --muted: #9aa7ba;
+      --faint: #6b7a8f;
+      --edge: #2a3345;
+      --agent: #e2a542;
+      --agent-strong: #eebc6a;
+      --agent-bg: rgba(226, 165, 66, 0.09);
+      --agent-edge: rgba(226, 165, 66, 0.38);
+      --code: #82abd8;
+      --code-bg: rgba(130, 171, 216, 0.10);
+      --code-edge: rgba(130, 171, 216, 0.38);
+      --human: #5fbd8d;
+      --human-bg: rgba(95, 189, 141, 0.10);
+      --human-edge: rgba(95, 189, 141, 0.38);
+      --propagate: #82abd8;
+      --hold: #5fbd8d;
+      --flag: #e07a70;
+      --spine: #333e52;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f2f4f7; --surface: #ffffff; --well: #eaeef3; --ink: #1c2430;
+    --muted: #5b6b7f; --faint: #8b98a9; --edge: #d8dee7;
+    --agent: #a86a0a; --agent-strong: #8f5a06; --agent-bg: #faf1df; --agent-edge: #e3c58f;
+    --code: #2f5d8a; --code-bg: #e7eef6; --code-edge: #b9cde0;
+    --human: #2b7a55; --human-bg: #e4f0e9; --human-edge: #a9cfba;
+    --propagate: #2f5d8a; --hold: #2b7a55; --flag: #a83a32; --spine: #c3ccd8;
+  }
+  :root[data-theme="dark"] {
+    --bg: #11151d; --surface: #191f2a; --well: #141922; --ink: #e6ebf2;
+    --muted: #9aa7ba; --faint: #6b7a8f; --edge: #2a3345;
+    --agent: #e2a542; --agent-strong: #eebc6a; --agent-bg: rgba(226,165,66,0.09); --agent-edge: rgba(226,165,66,0.38);
+    --code: #82abd8; --code-bg: rgba(130,171,216,0.10); --code-edge: rgba(130,171,216,0.38);
+    --human: #5fbd8d; --human-bg: rgba(95,189,141,0.10); --human-edge: rgba(95,189,141,0.38);
+    --propagate: #82abd8; --hold: #5fbd8d; --flag: #e07a70; --spine: #333e52;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 48px 20px 72px;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  .mono { font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace; }
+
+  header { margin-bottom: 34px; }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--agent); font-weight: 600; margin: 0 0 10px;
+  }
+  h1 {
+    font-size: 30px; line-height: 1.15; margin: 0 0 10px;
+    letter-spacing: -0.015em; text-wrap: balance; font-weight: 700;
+  }
+  .lede { color: var(--muted); max-width: 60ch; margin: 0 0 22px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; }
+  .key {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12.5px; color: var(--muted);
+    border: 1px solid var(--edge); background: var(--surface);
+    border-radius: 999px; padding: 5px 12px;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .dot.code { background: var(--code); }
+  .dot.agent { background: var(--agent); }
+  .dot.human { background: var(--human); }
+
+  /* ── orchestrator banner ─────────────────────────────── */
+  .orchestrator {
+    border: 1.5px solid var(--code-edge);
+    background: var(--code-bg);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap;
+  }
+  .orchestrator strong { color: var(--code); font-size: 14px; }
+  .orchestrator span { color: var(--muted); font-size: 13px; max-width: 62ch; }
+
+  /* ── pipeline ────────────────────────────────────────── */
+  .stage {
+    background: var(--surface);
+    border: 1px solid var(--edge);
+    border-radius: 10px;
+    padding: 18px 20px 20px;
+  }
+  .connector {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 2px 0; color: var(--spine);
+  }
+  .connector .line { width: 2px; height: 20px; background: var(--spine); }
+  .connector .head { font-size: 11px; line-height: 1; margin-top: -1px; }
+  .connector .note {
+    font-size: 11.5px; color: var(--faint); margin: 3px 0 4px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  .stage-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .stage-num {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; color: var(--faint); letter-spacing: 0.1em;
+  }
+  .stage-name { font-size: 16.5px; font-weight: 700; letter-spacing: -0.01em; }
+  .actor {
+    margin-left: auto;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 4px; border: 1px solid;
+  }
+  .actor.code  { color: var(--code);  background: var(--code-bg);  border-color: var(--code-edge); }
+  .actor.agent { color: var(--agent); background: var(--agent-bg); border-color: var(--agent-edge); }
+  .actor.human { color: var(--human); background: var(--human-bg); border-color: var(--human-edge); }
+  .stage-desc { color: var(--muted); font-size: 13.5px; margin: 0; max-width: 66ch; }
+
+  /* ── spawn zones ─────────────────────────────────────── */
+  .spawn {
+    margin-top: 14px;
+    border: 1.5px dashed var(--agent-edge);
+    background: var(--agent-bg);
+    border-radius: 8px;
+    padding: 12px 14px 14px;
+  }
+  .spawn-label {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;
+  }
+  .spawn-label b {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--agent-strong);
+  }
+  .mult {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11.5px; font-weight: 700; color: var(--agent-strong);
+    border: 1px solid var(--agent-edge); border-radius: 999px;
+    padding: 1px 9px; background: var(--surface);
+  }
+  .spawn-why { font-size: 12px; color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    background: var(--surface);
+    border: 1px solid var(--agent-edge);
+    border-left: 3px solid var(--agent);
+    border-radius: 6px;
+    padding: 7px 11px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11.5px; line-height: 1.45;
+    color: var(--ink);
+  }
+  .chip small { display: block; color: var(--faint); font-size: 10.5px; }
+  .chip.ghost { border-style: dashed; color: var(--faint); border-left-style: dashed; }
+  .chip .v { font-weight: 700; }
+  .v.propagate { color: var(--propagate); }
+  .v.hold { color: var(--hold); }
+  .v.flag { color: var(--flag); }
+
+  .nospawn {
+    margin-top: 14px;
+    border: 1px solid var(--code-edge);
+    background: var(--code-bg);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12.5px; color: var(--muted);
+  }
+  .nospawn b {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--code); margin-right: 8px;
+  }
+
+  /* two reconcile paths */
+  .paths { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  @media (max-width: 640px) { .paths { grid-template-columns: 1fr; } }
+  .path { border-radius: 8px; padding: 12px 14px 14px; }
+  .path h3 {
+    margin: 0 0 6px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .path p { margin: 0 0 10px; font-size: 12.5px; color: var(--muted); }
+  .path.mech { border: 1px solid var(--code-edge); background: var(--code-bg); }
+  .path.mech h3 { color: var(--code); }
+  .path.agents { border: 1.5px dashed var(--agent-edge); background: var(--agent-bg); }
+  .path.agents h3 { color: var(--agent-strong); }
+
+  /* feedback loop */
+  .loop {
+    margin-top: 12px;
+    border: 1.5px dashed var(--human-edge);
+    background: var(--human-bg);
+    border-radius: 8px;
+    padding: 11px 14px;
+    font-size: 12.5px; color: var(--muted);
+    display: flex; gap: 10px; align-items: baseline;
+  }
+  .loop b { color: var(--human); white-space: nowrap; }
+
+  /* tally */
+  .tally {
+    margin-top: 34px;
+    background: var(--surface);
+    border: 1px solid var(--edge);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .tally h2 { font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); margin: 0 0 12px; font-weight: 600; }
+  .tally-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .tal {
+    border: 1px solid var(--edge); border-radius: 8px;
+    background: var(--well);
+    padding: 8px 14px; text-align: center; min-width: 96px;
+  }
+  .tal .n { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--agent); }
+  .tal .n.c { color: var(--code); }
+  .tal .n.h { color: var(--human); }
+  .tal .t { font-size: 11px; color: var(--muted); }
+  .plus { color: var(--faint); font-size: 16px; }
+  .tally p { color: var(--muted); font-size: 12.5px; margin: 12px 0 0; max-width: 70ch; }
+
+  footer { margin-top: 26px; color: var(--faint); font-size: 12px; max-width: 74ch; }
+  footer b { color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Unitem · ARCHITECTURE.md §4 + §6</p>
+    <h1>Where the agents spawn</h1>
+    <p class="lede">One pipeline run, five stages. Deterministic Python owns the control flow and spawns LLM agents only where judgment or repo work is needed — each agent sees one narrow slice, never a whole codebase.</p>
+    <div class="legend">
+      <span class="key"><span class="dot code"></span> Deterministic code — no LLM</span>
+      <span class="key"><span class="dot agent"></span> Agent spawn point</span>
+      <span class="key"><span class="dot human"></span> Human decision</span>
+    </div>
+  </header>
+
+  <div class="orchestrator">
+    <strong class="mono">ORCHESTRATOR — plain Python, not an LLM</strong>
+    <span>Runs the five stages below, spawns every agent, and polices them: bounded concurrency, timeouts, retries, strict JSON-schema validation. Invalid agent output degrades to <span class="mono">flag / low-confidence</span> — never a crash, never a guess.</span>
+  </div>
+
+  <div class="connector"><span class="line"></span><span class="head">▼</span></div>
+
+  <!-- STAGE 1 -->
+  <section class="stage">
+    <div class="stage-head">
+      <span class="stage-num">STAGE 1</span>
+      <span class="stage-name">Discover</span>
+      <span class="actor code">deterministic · 0 agents</span>
+    </div>
+    <p class="stage-desc">tree-sitter parses both codebases and extracts hard design facts — colors, spacing, radii, type sizes, component usage, nav routes. In <span class="mono">diff</span> mode, also computes the atomic-change list from the git diff.</p>
+    <div class="nospawn"><b>no agents</b>Parsing is a solved problem. Facts come from ASTs, not from a model's opinion.</div>
+  </section>
+
+  <div class="connector"><span class="line"></span><span class="note">extracted facts · atomic changes</span><span class="line"></span><span class="head">▼</span></div>
+
+  <!-- STAGE 2 -->
+  <section class="stage">
+    <div class="stage-head">
+      <span class="stage-num">STAGE 2</span>
+      <span class="stage-name">Map</span>
+      <span class="actor agent">spawns 1 agent</span>
+    </div>
+    <p class="stage-desc">Heuristics (path, name, route, string-key similarity) pair most screens across platforms for free. Only the pairs the heuristics can't settle go to a model.</p>
+    <div class="spawn">
+      <div class="spawn-label"><b>Spawn</b><span class="mult">×1 batch</span><span class="spawn-why">Cursor headless CLI · only ambiguous pairs, not the whole tree</span></div>
+      <div class="chips">
+        <div class="chip">mapper<small>reconciles uncertain screen pairs → mapping.json (human-overridable)</small></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="connector"><span class="line"></span><span class="note">mapping.json</span><span class="line"></span><span class="head">▼</span></div>
+
+  <!-- STAGE 3 -->
+  <section class="stage">
+    <div class="stage-head">
+      <span class="stage-num">STAGE 3</span>
+      <span class="stage-name">Judge</span>
+      <span class="actor agent">spawns N agents — the big fan-out</span>
+    </div>
+    <p class="stage-desc">One agent <em>per atomic change</em> (diff mode) or per mapped section (audit mode), all in parallel. Each gets only its slice: the change, the mapped counterpart code, retrieved convention-KB rules, override precedents — and must return verdict + reason + confidence + cited rules.</p>
+    <div class="spawn">
+      <div class="spawn-label"><b>Spawn</b><span class="mult">×N parallel</span><span class="spawn-why">Cursor headless CLI · bounded concurrency · JSON-schema enforced</span></div>
+      <div class="chips">
+        <div class="chip">judge · color.primary <span class="mono">#2563EB→#1D4ED8</span><small>→ <span class="v propagate">propagate</span> · cites propagate/brand-color · 0.94</small></div>
+        <div class="chip">judge · toggle restyled to native iOS switch<small>→ <span class="v hold">hold</span> · cites hold/native-switch · 0.91</small></div>
+        <div class="chip">judge · hardcoded <span class="mono">#2563EB</span> in Color.kt<small>→ <span class="v flag">flag</span> · cites flag/hardcoded-color · 0.88</small></div>
+        <div class="chip">judge · button radius <span class="mono">8→6</span> (android)<small>→ <span class="v flag">flag</span> · off-scale · 0.72</small></div>
+        <div class="chip ghost">judge · …one per remaining change<small>tools: KB retrieval · WCAG contrast · scale check</small></div>
+      </div>
+    </div>
+    <div class="spawn" style="margin-top:10px">
+      <div class="spawn-label"><b>Spawn · stretch</b><span class="mult">×low-confidence only</span><span class="spawn-why">adversarial second opinion before a shaky verdict reaches the human</span></div>
+      <div class="chips">
+        <div class="chip ghost">critic · re-examines the 0.72 radius verdict<small>agree / overturn / escalate</small></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="connector"><span class="line"></span><span class="note">verdicts (tickets.json)</span><span class="line"></span><span class="head">▼</span></div>
+
+  <!-- STAGE 4 -->
+  <section class="stage">
+    <div class="stage-head">
+      <span class="stage-num">STAGE 4</span>
+      <span class="stage-name">Reconcile</span>
+      <span class="actor agent">spawns 1 cloud agent per accepted fix</span>
+    </div>
+    <p class="stage-desc">Accepted verdicts turn into real changes — by the cheapest reliable route. Hold verdicts spawn nothing: their output <em>is</em> the explanation.</p>
+    <div class="paths">
+      <div class="path mech">
+        <h3>Token change → mechanical</h3>
+        <p>Update the canonical token source; <b>Style Dictionary</b> regenerates both platforms' token files. No agent, nothing to hallucinate, can't fail to compile.</p>
+        <div class="nospawn" style="margin-top:0"><b>0 agents</b>judgment decided; the translation is mechanical</div>
+      </div>
+      <div class="path agents">
+        <h3>Code edit → Cursor Cloud Agent</h3>
+        <p>Dispatched <em>into the target repo</em>: makes the edit, verifies the build, opens the PR natively.</p>
+        <div class="chips">
+          <div class="chip">android-patcher<small>edits Color.kt → build ✓ → PR #12</small></div>
+          <div class="chip">ios-patcher<small>Mac-side (Xcode can't run in Linux VMs)</small></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="connector"><span class="line"></span><span class="note">PRs · tickets · explanations</span><span class="line"></span><span class="head">▼</span></div>
+
+  <!-- STAGE 5 -->
+  <section class="stage">
+    <div class="stage-head">
+      <span class="stage-num">STAGE 5</span>
+      <span class="stage-name">Review</span>
+      <span class="actor human">human · 0 agents</span>
+    </div>
+    <p class="stage-desc">The <span class="mono">/UI</span> console (iOS code · verdict cards · Android code, line-linked). The human accepts or overrides each verdict — accepting a propagate is what triggers its fixer agent in stage 4.</p>
+    <div class="loop"><b>↺ feedback loop</b><span>Every override appends to <span class="mono">overrides.jsonl</span> and is retrieved as precedent by <em>every future judge agent</em> — the tool learns the team's taste. Precedence: overrides &gt; agent.md &gt; convention KB.</span></div>
+  </section>
+
+  <!-- tally -->
+  <div class="tally">
+    <h2>One demo run, counted</h2>
+    <div class="tally-row">
+      <div class="tal"><div class="n c">1</div><div class="t">orchestrator (code)</div></div>
+      <span class="plus">+</span>
+      <div class="tal"><div class="n">1</div><div class="t">mapper</div></div>
+      <span class="plus">+</span>
+      <div class="tal"><div class="n">~4–7</div><div class="t">judges, parallel</div></div>
+      <span class="plus">+</span>
+      <div class="tal"><div class="n">0–1</div><div class="t">critic (stretch)</div></div>
+      <span class="plus">+</span>
+      <div class="tal"><div class="n">1–2</div><div class="t">fixer cloud agents</div></div>
+      <span class="plus">=</span>
+      <div class="tal"><div class="n h">≈9</div><div class="t">agent runs, all supervised</div></div>
+    </div>
+    <p>Every agent call runs behind one runner interface — <span class="mono">cursor</span> (default) → <span class="mono">anthropic</span> (fallback) → <span class="mono">mock</span> (recorded fixtures; the stage-day safety net and the offline dev mode).</p>
+  </div>
+
+  <footer>
+    <b>Also in the repo, outside this pipeline:</b> Bugbot and the security-reviewer agent review <em>our own</em> PRs (.cursor/), and the verifier agent does build + screenshot checks. They keep the team honest; they are not part of the product's verdict flow.
+  </footer>
+</div>
