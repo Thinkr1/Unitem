@@ -8,13 +8,42 @@ from conftest import REPO_ROOT
 PASTE = REPO_ROOT / "examples" / "paste"
 
 
-def test_dart_extraction_on_flutter_sample():
-    facts = extract_file(REPO_ROOT / "sample-flutter/lib/theme.dart", "android")
+DART_SNIPPET = """\
+import 'package:flutter/material.dart';
+
+class LoginScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      Switch(value: true, onChanged: null),
+      Text('Forgot password?',
+          style: TextStyle(fontSize: 13, color: Color(0xFF22C55E))),
+    ]);
+  }
+}
+"""
+
+THEME_SNIPPET = """\
+class AppTheme {
+  static const Color brandPrimary = Color(0xFF4F46E5);
+  static const double radiusButton = 12;
+}
+"""
+
+
+def test_dart_extraction(tmp_path):
+    # inline fixtures: sample-flutter/lib is live demo state that the transfer
+    # stage rewrites, so the extractor is tested on stable snippets instead
+    theme_path = tmp_path / "theme.dart"
+    theme_path.write_text(THEME_SNIPPET)
+    facts = extract_file(theme_path, "android")
     defs = {f.name: f.value for f in facts if f.kind == "token_def"}
     assert defs["brandPrimary"] == "#4F46E5"
     assert defs["radiusButton"] == "12"
 
-    screen = extract_file(REPO_ROOT / "sample-flutter/lib/login_screen.dart", "android")
+    screen_path = tmp_path / "login_screen.dart"
+    screen_path.write_text(DART_SNIPPET)
+    screen = extract_file(screen_path, "android")
     assert [f.value for f in screen if f.kind == "color"] == ["#22C55E"]
     assert "Switch" in {f.value for f in screen if f.kind == "component"}
     assert "Forgot password?" in {f.value for f in screen if f.kind == "copy"}

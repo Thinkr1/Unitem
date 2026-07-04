@@ -28,6 +28,13 @@ export function rescan(screen = 'login'): Promise<ComparisonResult | null> {
   return request<ComparisonResult>(`/rescan?screen=${screen}`, { method: 'POST' })
 }
 
+/** Whole-screen design transfer: the engine's writer agent regenerates the
+ *  Flutter screen + theme from the iOS design (verified before landing).
+ *  Expect a couple of minutes with the live runner. */
+export function transferDesign(screen = 'login'): Promise<ComparisonResult | null> {
+  return request<ComparisonResult>(`/transfer?screen=${screen}`, { method: 'POST' })
+}
+
 /** Judge two pasted code snippets; replaces the engine's current ticket set. */
 export function analyzePair(
   iosCode: string,

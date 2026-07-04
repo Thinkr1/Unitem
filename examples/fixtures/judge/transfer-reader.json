@@ -1,0 +1,90 @@
+{
+  "screen": "login",
+  "background": "#FFFFFF",
+  "colors": {
+    "brandPrimary": "#E11D48",
+    "brandInk": "#1A1B4B",
+    "textSecondary": "#8A8BB3",
+    "surface": "#FFFFFF"
+  },
+  "fonts": [
+    "SpaceGrotesk"
+  ],
+  "layout_summary": "A single centered vertical stack with 24pt rhythm and 24pt horizontal padding on a white surface: 96x96 logo, SpaceGrotesk-Bold 28 'Welcome back' heading in brandInk, a tighter 12pt group of two 52pt-high rounded bordered filled text fields (Email, Password/secure), a full-width 'Remember me' row with a trailing iOS switch, a full-width brandPrimary Sign In button (16 vertical padding, radius 12, white semibold 17 label), and a 13pt textSecondary 'Forgot password?' text link.",
+  "elements": [
+    {
+      "type": "image",
+      "text": null,
+      "style": {
+        "width": "96",
+        "height": "96"
+      }
+    },
+    {
+      "type": "text",
+      "text": "Welcome back",
+      "style": {
+        "fontFamily": "SpaceGrotesk",
+        "fontWeight": "bold",
+        "fontSize": "28",
+        "color": "#1A1B4B"
+      }
+    },
+    {
+      "type": "text_field",
+      "text": "Email",
+      "style": {
+        "height": "52",
+        "treatment": "rounded bordered, filled",
+        "cornerRadius": "8"
+      }
+    },
+    {
+      "type": "secure_field",
+      "text": "Password",
+      "style": {
+        "height": "52",
+        "treatment": "rounded bordered, filled",
+        "cornerRadius": "8"
+      }
+    },
+    {
+      "type": "toggle",
+      "text": "Remember me",
+      "style": {
+        "treatment": "iOS switch, label leading, switch trailing",
+        "onColor": "#34C759"
+      }
+    },
+    {
+      "type": "button",
+      "text": "Sign In",
+      "style": {
+        "background": "#E11D48",
+        "cornerRadius": "12",
+        "paddingVertical": "16",
+        "width": "full",
+        "fontSize": "17",
+        "fontWeight": "semibold",
+        "color": "#FFFFFF"
+      }
+    },
+    {
+      "type": "button",
+      "text": "Forgot password?",
+      "style": {
+        "fontSize": "13",
+        "color": "#8A8BB3",
+        "treatment": "plain text link"
+      }
+    }
+  ],
+  "must_haves": [
+    "Text fields use a rounded bordered filled treatment (OutlineInputBorder), never the Material underline default",
+    "Heading uses the SpaceGrotesk family at 28 with brandInk #1A1B4B",
+    "Sign In button is full-width, background #E11D48, corner radius 12, vertical padding 16, white semibold 17 label",
+    "Vertical rhythm is 24 between groups and 12 inside the field group; horizontal screen padding is 24",
+    "Remember me row keeps a switch treatment with the label before the switch",
+    "Forgot password is a plain 13pt text link in textSecondary #8A8BB3"
+  ]
+}

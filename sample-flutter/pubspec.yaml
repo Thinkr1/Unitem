@@ -7,6 +7,7 @@ environment:
   sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
+  google_fonts: ^6.2.1
   flutter:
     sdk: flutter
   # Fixer agents declare propagated-change dependencies here

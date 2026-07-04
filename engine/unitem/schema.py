@@ -136,3 +136,51 @@ class Rule(BaseModel):
     when: str
     why: str
     examples: list[str] = []
+
+
+# ── transfer mode (whole-screen design transfer, iOS → Flutter) ──────────────
+
+
+class DesignSpec(BaseModel):
+    """Whole-screen design contract distilled by the iOS reader agent.
+
+    Deliberately tolerant (extra="allow"): the reader may enrich the spec with
+    fields the writer can use; only colors/fonts feed deterministic checks.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    screen: str = ""
+    background: Optional[str] = None
+    colors: dict[str, str] = {}  # token name -> #RRGGBB actually used on screen
+    fonts: list[str] = []  # font family names in use (e.g. "SpaceGrotesk")
+    layout_summary: str = ""
+    elements: list[dict] = []  # ordered widget tree with exact style values
+    must_haves: list[str] = []  # acceptance criteria phrased for the writer
+
+
+class GeneratedFile(BaseModel):
+    path: str  # relative to the Flutter root, e.g. "lib/login_screen.dart"
+    content: str
+
+
+class TransferOutput(BaseModel):
+    """Exactly what the writer agent must emit — nothing more."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    files: list[GeneratedFile]
+    dependencies: list[str] = []  # pub package names (e.g. ["google_fonts"])
+    summary: str = ""
+
+
+class TransferResult(BaseModel):
+    """Outcome of a transfer run, surfaced to the CLI and the UI."""
+
+    ok: bool
+    files_written: list[str] = []
+    dependencies_added: list[str] = []
+    summary: str = ""
+    warnings: list[str] = []
+    error: Optional[str] = None
+    attempts: int = 0

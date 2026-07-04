@@ -220,11 +220,21 @@ def _panel(cfg: Config, platform: str, screen: str) -> dict:
         "fileName": Path(file).name,
         "code": code,
     }
+    theme_path = _theme_file(cfg, platform, Path(file).suffix)
+    if theme_path is not None:
+        panel["themeCode"] = theme_path.read_text(encoding="utf-8")
     if path.suffix == ".dart":
         preview = _flatten_dart_for_preview(code, path)
         if preview:
             panel["previewCode"] = preview
     return panel
+
+
+def _theme_file(cfg: Config, platform: str, suffix: str) -> Path | None:
+    """The platform's theme source, so previews resolve Theme.*/AppTheme.* live."""
+    root = cfg.ios_root if platform == "ios" else cfg.android_root
+    pattern = "Theme.swift" if platform == "ios" else ("theme.dart" if suffix == ".dart" else "Color.kt")
+    return next(iter(sorted(root.rglob(pattern))), None)
 
 
 def _flatten_dart_for_preview(code: str, screen_path: Path) -> str | None:
@@ -350,6 +360,38 @@ def create_app(cfg: Config) -> FastAPI:
                 store.save()
             progress.set("review", "verdicts ready for human review")
             return comparison(screen)
+        finally:
+            progress.idle()
+
+    @app.post("/transfer")
+    def transfer(screen: str = "login") -> dict:
+        """Whole-screen design transfer: iOS is the source of truth; the writer
+        agent regenerates the Flutter screen + theme, verified before landing."""
+        from .runner import get_runner
+        from .transfer import run_transfer
+
+        try:
+            runner = get_runner(cfg)
+            result = run_transfer(
+                cfg, runner, screen=screen,
+                on_stage=lambda stg, detail: progress.set(stg, detail),
+            )
+            if result.ok:
+                progress.event(
+                    f"design transferred to {', '.join(result.files_written)}"
+                )
+                with store.lock:
+                    # the transfer regenerates the whole screen, so open
+                    # per-change findings are addressed wholesale
+                    for ticket in store.tickets.tickets:
+                        if ticket.status == "pending" and ticket.verdict != "hold":
+                            ticket.status = "accepted"
+                    store.save()
+            else:
+                progress.event(f"transfer failed: {result.error}")
+            payload = comparison(screen)
+            payload["transfer"] = result.model_dump()
+            return payload
         finally:
             progress.idle()
 

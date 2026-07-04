@@ -87,11 +87,20 @@ export function wrapDartForPreview(
     ? `${widget}()`
     : `const Scaffold(body: Center(child: Text('Paste a Flutter widget to preview it.')))`
 
+  // Seed the app theme from the rulebook tokens so widgets that lean on
+  // Theme.of(context) don't silently fall back to stock Material defaults.
+  const seed = hexToFlutterColor(rulebook['color.brandPrimary'] ?? '#6366F1')
+  const surface = hexToFlutterColor(rulebook['color.surface'] ?? '#FFFFFF')
   const harness = `
 
 void main() => runApp(
   MaterialApp(
     debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(seedColor: ${seed}),
+      scaffoldBackgroundColor: ${surface},
+    ),
     home: ${home},
   ),
 );

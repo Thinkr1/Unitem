@@ -55,6 +55,7 @@ interface PanelProps {
   onResolve: (id: string) => void
   onIgnore: (id: string) => void
   onResolveAll: () => void
+  transferring?: boolean
 }
 
 export default function InconsistenciesPanel({
@@ -66,6 +67,7 @@ export default function InconsistenciesPanel({
   onResolve,
   onIgnore,
   onResolveAll,
+  transferring = false,
 }: PanelProps) {
   const open = items.filter((i) => i.status === 'open')
   const issues = items.filter((i) => i.verdict !== 'hold')
@@ -97,10 +99,10 @@ export default function InconsistenciesPanel({
 
         <button
           onClick={onResolveAll}
-          disabled={open.length === 0}
+          disabled={transferring}
           className="shrink-0 rounded-full bg-accent px-3.5 py-1.5 font-heading text-[11px] font-semibold text-accent-contrast transition-colors hover:bg-accent-bright disabled:bg-surface-raised disabled:text-ink-faint"
         >
-          Resolve all
+          {transferring ? 'Transferring…' : 'Transfer to Android'}
         </button>
       </header>
 

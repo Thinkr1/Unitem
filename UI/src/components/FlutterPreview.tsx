@@ -1,16 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { wrapDartForPreview } from '../lib/flutterHarness'
-import { PixelFrame, EmulatorWindow } from './LoginPreview'
+import { PixelFrame, EmulatorWindow } from './PhoneChrome'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FlutterPreview renders pasted Dart *for real* by embedding DartPad and
+// FlutterPreview renders the Dart *for real* by embedding DartPad and
 // injecting the source over postMessage. DartPad compiles Flutter to web and
 // runs it inside the iframe, so this is a true render (network required).
-//
-// Not wired into ScreenPanel's default "Visual" tab (that now uses the
-// reactive LoginPreview schematic for both platforms, matching iOS and
-// letting the mockup respond instantly to resolved fixes). Kept here for
-// genuinely custom/pasted Dart that the schematic can't represent.
+// This is the Android "Visual" tab: after a transfer/fix lands, the panel
+// remounts and DartPad recompiles the actual on-disk screen.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DARTPAD_ORIGIN = 'https://dartpad.dev'

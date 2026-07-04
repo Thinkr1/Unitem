@@ -15,6 +15,9 @@ export interface CodePanel {
   code: string
   /** Single-file version with local imports inlined — what DartPad can compile. */
   previewCode?: string
+  /** The platform's theme source (Theme.swift / theme.dart), so previews can
+   *  resolve `Theme.*` / `AppTheme.*` constants to real values. */
+  themeCode?: string
 }
 
 export type Verdict = 'propagate' | 'hold' | 'flag'
@@ -41,6 +44,17 @@ export interface Inconsistency {
   prUrl?: string | null
 }
 
+/** Outcome of a whole-screen design transfer (engine schema TransferResult). */
+export interface TransferSummary {
+  ok: boolean
+  files_written: string[]
+  dependencies_added: string[]
+  summary: string
+  warnings: string[]
+  error?: string | null
+  attempts: number
+}
+
 export interface ComparisonResult {
   /** Screen id from the engine mapping, e.g. "login". */
   screen?: string
@@ -48,4 +62,6 @@ export interface ComparisonResult {
   android: CodePanel
   inconsistencies: Inconsistency[]
   rulebook: Record<string, string>
+  /** Present on POST /transfer responses. */
+  transfer?: TransferSummary
 }

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CodePanel as CodePanelData, Inconsistency, Severity } from '../types'
 import { highlightLine } from '../lib/highlight'
-import LoginPreview from './LoginPreview'
+import SwiftPreview from './SwiftPreview'
+import FlutterPreview from './FlutterPreview'
 import SimulatorPreview from './SimulatorPreview'
 
 export interface LinePulse {
@@ -49,10 +50,6 @@ export default function ScreenPanel({
 
   // When an inconsistency is selected, switch to code view is opt-in —
   // visual view handles its own highlight so we don't force a tab switch.
-
-  const previewVariant = /login/i.test(panel.fileName)
-    ? 'login'
-    : 'daily-goals'
 
   return (
     <section className="flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-edge bg-surface">
@@ -102,13 +99,20 @@ export default function ScreenPanel({
       </header>
 
       {view === 'visual' ? (
-        <LoginPreview
-          platform={panel.platform}
-          variant={previewVariant}
-          rulebook={rulebook}
-          activeInconsistency={activeInconsistency}
-          inconsistencies={inconsistencies}
-        />
+        panel.platform === 'android' ? (
+          <FlutterPreview
+            code={panel.previewCode ?? panel.code}
+            device="Pixel 7"
+            rulebook={rulebook}
+          />
+        ) : (
+          <SwiftPreview
+            code={panel.code}
+            themeCode={panel.themeCode}
+            rulebook={rulebook}
+            activeInconsistency={activeInconsistency}
+          />
+        )
       ) : view === 'simulator' ? (
         <SimulatorPreview platform={panel.platform} />
       ) : (

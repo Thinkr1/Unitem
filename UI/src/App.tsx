@@ -8,6 +8,7 @@ import {
   fetchComparison,
   overrideFinding,
   rescan,
+  transferDesign,
 } from './lib/api'
 import ScreenPanel, { type LinePulse } from './components/ScreenPanel'
 import InconsistenciesPanel, {
@@ -30,7 +31,7 @@ const PAGE_META: Record<NavPage, { title: string; subtitle: string }> = {
   },
   comparison: {
     title: 'Comparison',
-    subtitle: 'Ready to reconcile iOS & Android?',
+    subtitle: 'Transfer the iOS design to Android',
   },
   agents: {
     title: 'Agents',
@@ -85,6 +86,7 @@ export default function App() {
   const [androidPreview, setAndroidPreview] = useState<string | undefined>()
   const [rescanNonce, setRescanNonce] = useState(0)
   const [rescanning, setRescanning] = useState(false)
+  const [transferring, setTransferring] = useState(false)
 
   const [items, setItems] = useState<Inconsistency[]>(
     mockComparison.inconsistencies,
@@ -150,14 +152,26 @@ export default function App() {
     )
   }
 
-  const onResolveAll = () => {
-    for (const item of items) {
-      if (
-        item.status === 'open' &&
-        (item.verdict === 'flag' || !item.verdict)
-      ) {
-        void onResolve(item.id)
+  // Whole-screen transfer: the engine's writer agent regenerates the Flutter
+  // screen + theme from the iOS design. If the engine is unreachable, fall
+  // back to accepting the open findings one by one.
+  const onTransfer = async () => {
+    if (transferring) return
+    setTransferring(true)
+    try {
+      const result = await transferDesign(screenName)
+      if (result) {
+        applyComparison(result)
+      } else {
+        for (const item of items) {
+          if (item.status === 'open' && item.verdict !== 'hold') {
+            await onResolve(item.id)
+          }
+        }
       }
+    } finally {
+      setTransferring(false)
+      setRescanNonce((n) => n + 1) // remount DartPad so it compiles the new screen
     }
   }
 
@@ -287,10 +301,10 @@ export default function App() {
         />
 
         {page === 'comparison' ? (
-          <div className="flex min-h-0 flex-1 flex-col pb-4 pr-4 pl-1">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col pb-4 pr-4 pl-1">
             <PipelineStrip />
             <Group orientation="horizontal" className="min-h-0 flex-1">
-            <Panel defaultSize={34} minSize={18} className="!overflow-visible">
+            <Panel defaultSize="34%" minSize="18%" className="!overflow-visible">
               <ScreenPanel
                 panel={iosPanel}
                 title="iOS · Swift"
@@ -303,7 +317,7 @@ export default function App() {
               />
             </Panel>
             <ResizeHandle />
-            <Panel defaultSize={34} minSize={18} className="!overflow-visible">
+            <Panel defaultSize="34%" minSize="18%" className="!overflow-visible">
               <ScreenPanel
                 key={`android-${rescanNonce}`}
                 panel={androidPanel}
@@ -317,7 +331,7 @@ export default function App() {
               />
             </Panel>
             <ResizeHandle />
-            <Panel defaultSize={32} minSize={22} className="!overflow-visible">
+            <Panel defaultSize="32%" minSize="22%" className="!overflow-visible">
               <InconsistenciesPanel
                 items={items}
                 filter={filter}
@@ -326,7 +340,8 @@ export default function App() {
                 onSelect={onSelect}
                 onResolve={onResolve}
                 onIgnore={onIgnore}
-                onResolveAll={onResolveAll}
+                onResolveAll={onTransfer}
+                transferring={transferring}
               />
             </Panel>
             </Group>
