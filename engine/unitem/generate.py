@@ -61,14 +61,24 @@ def _transform_substitution(ticket: Ticket, cfg: Config) -> list[Path]:
         raise ValueError("substitution fix needs an expected value")
     platform = change.origin_platform
     facts = discover_platform(cfg, platform)
+    # The model may phrase `expected` loosely ("color.textSecondary (#8A8BB3)").
+    # Match a token by embedded hex value first, then by embedded token name.
+    hex_match = re.search(r"#[0-9A-Fa-f]{6}", ticket.expected)
+    wanted_value = (hex_match.group(0) if hex_match else ticket.expected).upper()
     token = next(
-        (
-            f
-            for f in facts
-            if f.kind == "token_def" and f.value.upper() == ticket.expected.upper()
-        ),
+        (f for f in facts if f.kind == "token_def" and f.value.upper() == wanted_value),
         None,
     )
+    if token is None:
+        expected_lower = ticket.expected.lower()
+        token = next(
+            (
+                f
+                for f in facts
+                if f.kind == "token_def" and f.name and f.name.lower() in expected_lower
+            ),
+            None,
+        )
     if token is None:
         raise ValueError(f"no {platform} token holds expected value {ticket.expected}")
 
