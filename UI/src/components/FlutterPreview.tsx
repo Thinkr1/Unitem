@@ -19,9 +19,11 @@ interface FlutterPreviewProps {
   code: string
   device: string
   rulebook?: Record<string, string>
+  /** Real theme.dart from the engine — keeps Visual in sync with the Code tab. */
+  themeCode?: string
 }
 
-export default function FlutterPreview({ code, device, rulebook = {} }: FlutterPreviewProps) {
+export default function FlutterPreview({ code, device, rulebook = {}, themeCode }: FlutterPreviewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const loadedRef = useRef(false)
   const [status, setStatus] = useState<Status>('loading')
@@ -30,7 +32,7 @@ export default function FlutterPreview({ code, device, rulebook = {} }: FlutterP
     const iframe = iframeRef.current
     if (!iframe) return
 
-    const wrapped = wrapDartForPreview(code, rulebook)
+    const wrapped = wrapDartForPreview(code, rulebook, themeCode)
 
     const post = () => {
       iframe.contentWindow?.postMessage(
@@ -75,12 +77,12 @@ export default function FlutterPreview({ code, device, rulebook = {} }: FlutterP
       window.clearTimeout(reveal)
       window.clearTimeout(failsafe)
     }
-  }, [code, rulebook])
+  }, [code, rulebook, themeCode])
 
   const handleLoad = () => {
     loadedRef.current = true
     iframeRef.current?.contentWindow?.postMessage(
-      { sourceCode: wrapDartForPreview(code, rulebook), type: 'sourceCode' },
+      { sourceCode: wrapDartForPreview(code, rulebook, themeCode), type: 'sourceCode' },
       DARTPAD_ORIGIN,
     )
   }

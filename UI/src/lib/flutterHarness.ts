@@ -58,24 +58,58 @@ export function inlineDartImports(
   return out
 }
 
+/** Strip package:flutter imports from an inlined companion file. */
+function stripFlutterPackageImports(code: string): string {
+  return code.replace(/import\s+['"]package:flutter\/[^'"]+['"];\n?/g, '')
+}
+
+/** DartPad has no asset bundle — swap Image.asset for a gradient tile placeholder.
+ *  Preserves width/height from the source call so the preview matches the Code tab layout. */
+const IMAGE_ASSET_RE =
+  /(?:const\s+)?Image\.asset\(\s*'[^']*'(?:\s*,\s*width:\s*([\d.]+))?(?:\s*,\s*height:\s*([\d.]+))?\s*\)/g
+
+function logoPlaceholder(width = 96, height = 96): string {
+  const icon = Math.round(Math.min(width, height) * 0.45)
+  return (
+    `Container(width: ${width}, height: ${height}, alignment: Alignment.center, ` +
+    `decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), ` +
+    `gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, ` +
+    `colors: [Color(0xFF1A1B4B), Color(0xFF3A3C7E)])), ` +
+    `child: const Icon(Icons.image_outlined, size: ${icon}, color: Colors.white70))`
+  )
+}
+
+export function swapImageAssetsForPreview(code: string): string {
+  return code.replace(IMAGE_ASSET_RE, (_match, w, h) => {
+    const width = w ? Number(w) : h ? Number(h) : 96
+    const height = h ? Number(h) : w ? Number(w) : 96
+    return logoPlaceholder(width, height)
+  })
+}
+
 /**
  * Ensure the Dart source is a runnable Flutter app for DartPad.
- * - Inlines theme.dart (or rulebook-generated AppTheme) when imported.
- * - If it already declares `main`, it is returned unchanged (after inlining).
- * - Otherwise a `main()` + `MaterialApp` harness is appended.
+ * - Inlines the real theme.dart from the engine when provided (matches the Code tab).
+ * - Falls back to rulebook-generated AppTheme only when theme.dart is imported but
+ *   no theme source was supplied.
+ * - Swaps Image.asset for a same-size placeholder (DartPad has no asset bundle).
+ * - Appends a scaled 375×812 harness when no main() is present.
  */
 export function wrapDartForPreview(
   code: string,
   rulebook: Record<string, string> = {},
+  themeCode?: string,
 ): string {
   let source = code.trim()
 
   if (/import\s+['"]theme\.dart['"]/.test(source)) {
-    source = inlineDartImports(source, {
-      'theme.dart': themeFromRulebook(rulebook),
-    })
+    const themeBody = themeCode
+      ? stripFlutterPackageImports(themeCode).trim()
+      : themeFromRulebook(rulebook)
+    source = inlineDartImports(source, { 'theme.dart': themeBody })
   }
 
+  source = swapImageAssetsForPreview(source)
   source = ensureMaterialImport(source)
 
   if (/\bvoid\s+main\s*\(/.test(source) || /\bmain\s*\(\s*\)\s*(?:async\s*)?\{/.test(source)) {
