@@ -20,6 +20,7 @@ interface EngineProgress {
   detail: string
   done: number
   total: number
+  events?: { ts: string; text: string }[]
 }
 
 export default function PipelineStrip() {
@@ -56,9 +57,11 @@ export default function PipelineStrip() {
 
   if (!progress) return null
   const activeIndex = STAGES.findIndex((s) => s.id === progress.stage)
+  const events = progress.events ?? []
 
   return (
-    <div className="mx-1 mb-3 flex items-center gap-3 rounded-xl border border-accent/30 bg-surface px-4 py-2.5">
+    <div className="mx-1 mb-3 flex flex-col gap-2 rounded-xl border border-accent/30 bg-surface px-4 py-2.5">
+      <div className="flex items-center gap-3">
       <span className="flex items-center gap-2 font-heading text-[10.5px] font-bold uppercase tracking-wider text-accent">
         <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
         Pipeline
@@ -101,6 +104,26 @@ export default function PipelineStrip() {
       <span className="min-w-0 flex-1 truncate text-right font-mono text-[10.5px] text-ink-muted">
         {progress.detail}
       </span>
+      </div>
+
+      {/* Activity feed — the engine's live "thinking": one line per real event */}
+      {events.length > 0 && (
+        <div className="max-h-24 overflow-y-auto rounded-lg bg-surface-deep px-3 py-2">
+          {events
+            .slice()
+            .reverse()
+            .map((event, i) => (
+              <div
+                key={`${event.ts}-${i}`}
+                className={`font-mono text-[10px] leading-relaxed ${
+                  i === 0 ? 'text-ink' : 'text-ink-faint'
+                }`}
+              >
+                <span className="text-accent/70">[{event.ts}]</span> {event.text}
+              </div>
+            ))}
+        </div>
+      )}
     </div>
   )
 }

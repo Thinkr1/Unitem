@@ -238,17 +238,32 @@ def _agent_fix_succeeded(ticket: Ticket, cfg: Config) -> bool:
 
 
 def apply_fix_with_agent(ticket: Ticket, cfg: Config) -> list[Path]:
-    """Dispatch a cursor-agent into the repo to apply the fix; verify its work
-    deterministically and fall back to the mechanical transform on failure."""
-    from .runner.cursor import _find_binary, _log_spawn
+    """Dispatch an agent (cursor or claude, per runner config) into the repo to
+    apply the fix; verify its work deterministically, mechanical fallback."""
+    from .runner.cursor import _log_spawn
 
     try:
-        binary = _find_binary()
+        instruction = _fix_instruction(ticket, cfg)
         model = cfg.runner.model
-        _log_spawn(f"fixer:{ticket.id}", model)
-        cmd = [binary, "-p", _fix_instruction(ticket, cfg), "--output-format", "json", "--trust"]
-        if model and model != "auto":
-            cmd += ["--model", model]
+        if cfg.runner.name == "claude":
+            from .runner.claude import _find_claude
+
+            binary = _find_claude()
+            claude_model = "opus" if model.startswith("claude-opus-4-8") else model
+            _log_spawn(f"fixer:{ticket.id}", f"claude:{claude_model}")
+            # headless edits need permissions granted up front (own repo)
+            cmd = [binary, "-p", instruction, "--output-format", "json",
+                   "--dangerously-skip-permissions"]
+            if claude_model and claude_model != "auto":
+                cmd += ["--model", claude_model]
+        else:
+            from .runner.cursor import _find_binary
+
+            binary = _find_binary()
+            _log_spawn(f"fixer:{ticket.id}", model)
+            cmd = [binary, "-p", instruction, "--output-format", "json", "--trust"]
+            if model and model != "auto":
+                cmd += ["--model", model]
         subprocess.run(
             cmd,
             cwd=cfg.root,
@@ -329,7 +344,9 @@ def apply_and_pr(ticket: Ticket, cfg: Config, runner_name: str | None = None) ->
     if ticket.verdict == "hold":
         return
     runner_name = runner_name or cfg.runner.name
-    use_agent = cfg.fixer == "agent" or (cfg.fixer == "auto" and runner_name == "cursor")
+    use_agent = cfg.fixer == "agent" or (
+        cfg.fixer == "auto" and runner_name in ("cursor", "claude")
+    )
     touched = apply_fix_with_agent(ticket, cfg) if use_agent else apply_fix(ticket, cfg)
     if ticket.proposed_fix is None:
         diff = "".join(

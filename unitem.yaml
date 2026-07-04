@@ -10,8 +10,8 @@ fixtures_dir: examples/fixtures
 screen: login
 
 runner:
-  name: cursor      # mock | cursor  (cursor = live agents via subscription; mock = fixture replay, offline)
-  model: claude-opus-4-8-xhigh   # every judge/fixer agent runs Opus 4.8 Extra High
+  name: claude      # claude | cursor | mock (claude = Claude subscription; cursor = Cursor subscription; mock = offline replay)
+  model: claude-opus-4-8-xhigh   # cursor gets this id verbatim; claude runner maps it to its 'opus' alias
   concurrency: 4
   timeout_s: 120
 

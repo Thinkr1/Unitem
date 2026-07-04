@@ -46,11 +46,19 @@ class Progress:
         self.detail = ""
         self.done = 0
         self.total = 0
+        self.events: list[dict] = []  # rolling activity feed (the UI's "thinking" view)
+
+    def event(self, text: str) -> None:
+        with self.lock:
+            self.events.append({"ts": time.strftime("%H:%M:%S"), "text": text})
+            self.events = self.events[-50:]
 
     def set(self, stage: str, detail: str = "", done: int = 0, total: int = 0) -> None:
         with self.lock:
             self.state = "running"
             self.stage, self.detail, self.done, self.total = stage, detail, done, total
+            self.events.append({"ts": time.strftime("%H:%M:%S"), "text": f"{stage}: {detail}"})
+            self.events = self.events[-50:]
 
     def bump(self) -> None:
         with self.lock:
@@ -69,6 +77,7 @@ class Progress:
                 "detail": self.detail,
                 "done": self.done,
                 "total": self.total,
+                "events": self.events[-15:],
             }
 
 
@@ -304,22 +313,23 @@ def create_app(cfg: Config) -> FastAPI:
                 timeout_s=cfg.runner.timeout_s,
             )
             runner = get_runner(cfg)
-            agent_word = "agent" if runner.name == "cursor" else "replay"
+            agent_word = "replay" if runner.name == "mock" else "agent"
             progress.set(
                 "judge",
                 f"{len(changes)} changes → one {agent_word} each, parallel",
                 0,
                 len(changes),
             )
+            def _judged(ticket) -> None:
+                progress.bump()
+                progress.event(
+                    f"agent verdict: {ticket.verdict.upper()} {ticket.change.name} "
+                    f"(confidence {ticket.confidence:.2f})"
+                )
+
             tickets = sort_tickets(
                 dedupe(
-                    judge_all(
-                        changes,
-                        ctx,
-                        runner,
-                        cfg.runner.concurrency,
-                        on_result=lambda t: progress.bump(),
-                    )
+                    judge_all(changes, ctx, runner, cfg.runner.concurrency, on_result=_judged)
                 )
             )
             with store.lock:
@@ -410,9 +420,12 @@ def create_app(cfg: Config) -> FastAPI:
             from .generate import apply_and_pr
 
             try:
-                fixer = "fixer agent" if cfg.runner.name == "cursor" else "mechanical fix"
+                fixer = (
+                    "fixer agent" if cfg.runner.name in ("cursor", "claude") else "mechanical fix"
+                )
                 progress.set("fix", f"{fixer} applying {ticket.id} ({ticket.change.name})")
                 apply_and_pr(ticket, cfg)
+                progress.event(f"{ticket.id} fix applied to {ticket.change.name}")
             finally:
                 progress.idle()
             ticket.status = "accepted"
