@@ -35,6 +35,10 @@ export interface DeviceBridge {
     screenshot(udid: string): Promise<string> // base64 PNG
     install(udid: string, appPath: string): Promise<{ udid: string; appPath: string }>
     launch(udid: string, bundleId: string): Promise<{ udid: string; bundleId: string }>
+    /** Whether `../../sample-ios` has already been built for the Simulator, and where. */
+    sampleInfo(): Promise<{ appPath: string; bundleId: string; exists: boolean }>
+    /** Runs `xcodegen generate` + `xcodebuild` for sample-ios/ — slow the first time. */
+    buildSample(): Promise<{ appPath: string; bundleId: string }>
   }
   android: {
     listAvds(): Promise<AndroidAvdInfo[]>

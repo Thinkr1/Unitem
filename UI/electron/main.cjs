@@ -38,6 +38,8 @@ function registerDeviceBridgeHandlers() {
   ipcMain.handle('device:ios:screenshot', (_e, udid) => deviceBridge.ios.screenshot(udid))
   ipcMain.handle('device:ios:install', (_e, udid, appPath) => deviceBridge.ios.install(udid, appPath))
   ipcMain.handle('device:ios:launch', (_e, udid, bundleId) => deviceBridge.ios.launch(udid, bundleId))
+  ipcMain.handle('device:ios:sample-info', () => deviceBridge.ios.sampleInfo())
+  ipcMain.handle('device:ios:sample-build', () => deviceBridge.ios.buildSample())
 
   ipcMain.handle('device:android:list-avds', () => deviceBridge.android.listAvds())
   ipcMain.handle('device:android:list-devices', () => deviceBridge.android.listDevices())

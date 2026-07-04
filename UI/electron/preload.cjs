@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld('deviceBridge', {
     screenshot: invoke('device:ios:screenshot'),
     install: invoke('device:ios:install'),
     launch: invoke('device:ios:launch'),
+    sampleInfo: invoke('device:ios:sample-info'),
+    buildSample: invoke('device:ios:sample-build'),
   },
   android: {
     listAvds: invoke('device:android:list-avds'),

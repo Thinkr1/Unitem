@@ -171,6 +171,81 @@ async function launchIOSApp(udid, bundleId) {
   return { udid, bundleId }
 }
 
+// ── sample-ios (see ../../sample-ios) ────────────────────────────────────────
+// The Simulator tab's "Run Sample App" button drives this: it's the same
+// project.yml + Sources/ that `sample-ios/run.sh` builds standalone, so the
+// UI can offer "install + launch a real app" without you leaving it.
+
+const SAMPLE_IOS_DIR = path.join(__dirname, '..', '..', 'sample-ios')
+const SAMPLE_IOS_SCHEME = 'SampleLogin'
+const SAMPLE_IOS_BUNDLE_ID = 'com.unitem.sample.login'
+const SAMPLE_IOS_APP_PATH = path.join(
+  SAMPLE_IOS_DIR,
+  'build',
+  'Build',
+  'Products',
+  'Debug-iphonesimulator',
+  `${SAMPLE_IOS_SCHEME}.app`,
+)
+
+async function sampleIOSAppInfo() {
+  return {
+    appPath: SAMPLE_IOS_APP_PATH,
+    bundleId: SAMPLE_IOS_BUNDLE_ID,
+    exists: fsSync.existsSync(SAMPLE_IOS_APP_PATH),
+  }
+}
+
+/**
+ * Builds sample-ios/ for the Simulator (xcodegen generate + xcodebuild).
+ * This is genuinely slow the first time (a full Xcode build) — callers
+ * should show a "building…" state rather than treating this as instant.
+ * Subsequent calls with unchanged source are much faster (incremental
+ * xcodebuild), and callers can skip calling this at all once
+ * `sampleIOSAppInfo().exists` is true.
+ */
+async function buildSampleIOSApp() {
+  if (process.platform !== 'darwin') {
+    throw new Error('Building the sample iOS app requires Xcode, which only exists on macOS.')
+  }
+  if (!fsSync.existsSync(SAMPLE_IOS_DIR)) {
+    throw new Error(`sample-ios/ not found at ${SAMPLE_IOS_DIR} — expected it next to UI/.`)
+  }
+
+  try {
+    await run('xcodegen', ['generate'], { cwd: SAMPLE_IOS_DIR })
+  } catch (err) {
+    throw new Error(`"xcodegen generate" failed (${err.message}). Install it with: brew install xcodegen`)
+  }
+
+  try {
+    await run(
+      'xcodebuild',
+      [
+        '-project',
+        `${SAMPLE_IOS_SCHEME}.xcodeproj`,
+        '-scheme',
+        SAMPLE_IOS_SCHEME,
+        '-sdk',
+        'iphonesimulator',
+        '-destination',
+        'generic/platform=iOS Simulator',
+        '-derivedDataPath',
+        path.join(SAMPLE_IOS_DIR, 'build'),
+        'build',
+      ],
+      { cwd: SAMPLE_IOS_DIR, maxBuffer: 1024 * 1024 * 256 },
+    )
+  } catch (err) {
+    throw new Error(`xcodebuild failed: ${err.message}\n${err.stderr ?? ''}`.trim())
+  }
+
+  if (!fsSync.existsSync(SAMPLE_IOS_APP_PATH)) {
+    throw new Error(`Build finished but ${SAMPLE_IOS_APP_PATH} was not produced — check the Xcode build log.`)
+  }
+  return { appPath: SAMPLE_IOS_APP_PATH, bundleId: SAMPLE_IOS_BUNDLE_ID }
+}
+
 // ── Android (emulator + adb) ─────────────────────────────────────────────────
 
 async function listAndroidEmulators() {
@@ -321,6 +396,8 @@ module.exports = {
     screenshot: screenshotIOSSimulator,
     install: installIOSApp,
     launch: launchIOSApp,
+    sampleInfo: sampleIOSAppInfo,
+    buildSample: buildSampleIOSApp,
   },
   android: {
     listAvds: listAndroidEmulators,

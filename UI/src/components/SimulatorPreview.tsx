@@ -69,15 +69,29 @@ function ErrorNote({ message }: { message: string }) {
   )
 }
 
-function StatusNote({ tone, message }: { tone: 'success' | 'warning'; message: string }) {
+function StatusNote({ tone, message }: { tone: 'success' | 'warning' | 'progress'; message: string }) {
   const cls =
     tone === 'success'
       ? 'border-accent/40 bg-accent/10 text-ink'
-      : 'border-severity-warning/30 bg-severity-warning/10 text-severity-warning'
+      : tone === 'warning'
+        ? 'border-severity-warning/30 bg-severity-warning/10 text-severity-warning'
+        : 'border-edge-bright/50 bg-surface-deep text-ink-muted'
   return <div className={`mx-3 mb-2 rounded-lg border px-3 py-2 text-[10.5px] leading-snug ${cls}`}>{message}</div>
 }
 
 // ── iOS ──────────────────────────────────────────────────────────────────────
+
+type SampleAppStatus = 'idle' | 'booting' | 'checking' | 'building' | 'installing' | 'launching' | 'done'
+
+const SAMPLE_STATUS_LABEL: Record<SampleAppStatus, string> = {
+  idle: '',
+  booting: 'Booting the simulator…',
+  checking: 'Checking for a built sample app…',
+  building: 'Building sample-ios (first time only — this can take a minute or two)…',
+  installing: 'Installing the sample app…',
+  launching: 'Launching the sample app…',
+  done: '✓ Sample Login app launched — check the Simulator.app window.',
+}
 
 function IOSSimulatorPanel({ bridge }: { bridge: NonNullable<Window['deviceBridge']> }) {
   const [devices, setDevices] = useState<IOSSimulatorInfo[]>([])
@@ -88,7 +102,9 @@ function IOSSimulatorPanel({ bridge }: { bridge: NonNullable<Window['deviceBridg
   const [screenshot, setScreenshot] = useState<string | null>(null)
   const [bundleId, setBundleId] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [sampleStatus, setSampleStatus] = useState<SampleAppStatus>('idle')
   const pollRef = useRef<number | null>(null)
+  const sampleBusy = sampleStatus !== 'idle' && sampleStatus !== 'done'
 
   const refreshDevices = async () => {
     setError(null)
@@ -178,6 +194,57 @@ function IOSSimulatorPanel({ bridge }: { bridge: NonNullable<Window['deviceBridg
     }
   }
 
+  /**
+   * The one-click path: boot the simulator if needed, build sample-ios/ if it
+   * hasn't been built yet (slow, one-time), then install + launch it — so
+   * something real actually shows up instead of just the simulator home
+   * screen. Mirrors what `sample-ios/run.sh` does standalone.
+   */
+  const onRunSampleApp = async () => {
+    if (!udid) return
+    setError(null)
+    try {
+      if (!gui?.ok) {
+        setSampleStatus('booting')
+        const bootResult = await bridge.ios.boot(udid)
+        setGui({ ok: bootResult.openedGui, error: bootResult.openError })
+      }
+
+      setSampleStatus('checking')
+      const info = await bridge.ios.sampleInfo()
+      let { appPath, bundleId: sampleBundleId } = info
+      if (!info.exists) {
+        setSampleStatus('building')
+        const built = await bridge.ios.buildSample()
+        appPath = built.appPath
+        sampleBundleId = built.bundleId
+      }
+
+      setSampleStatus('installing')
+      await bridge.ios.install(udid, appPath)
+
+      setSampleStatus('launching')
+      await bridge.ios.launch(udid, sampleBundleId)
+
+      setSampleStatus('done')
+    } catch (err) {
+      setError((err as Error).message)
+      setSampleStatus('idle')
+    }
+  }
+
+  const onRebuildSampleApp = async () => {
+    setError(null)
+    setSampleStatus('building')
+    try {
+      await bridge.ios.buildSample()
+      setSampleStatus('idle')
+    } catch (err) {
+      setError((err as Error).message)
+      setSampleStatus('idle')
+    }
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <Toolbar>
@@ -210,6 +277,21 @@ function IOSSimulatorPanel({ bridge }: { bridge: NonNullable<Window['deviceBridg
         <div className="mx-3 -mt-1 mb-2">
           <ToolbarButton onClick={onOpenAgain}>Try opening the window again</ToolbarButton>
         </div>
+      )}
+
+      <Toolbar>
+        <ToolbarButton onClick={onRunSampleApp} disabled={!udid || sampleBusy} primary>
+          {sampleBusy ? 'Working…' : 'Run Sample Login App'}
+        </ToolbarButton>
+        <ToolbarButton onClick={onRebuildSampleApp} disabled={sampleBusy}>
+          Rebuild
+        </ToolbarButton>
+      </Toolbar>
+      {sampleStatus !== 'idle' && (
+        <StatusNote
+          tone={sampleStatus === 'done' ? 'success' : 'progress'}
+          message={SAMPLE_STATUS_LABEL[sampleStatus]}
+        />
       )}
 
       <MirrorToggle enabled={mirrorOn} onChange={setMirrorOn} label="Mirror this device's screen in-panel" />
