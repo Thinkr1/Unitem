@@ -26,6 +26,7 @@ Read them in order. They are self-contained — you should not need the original
 | `05-team-setup.md` | Roles, the Windows/Mac hardware split, tooling, environment setup |
 | `06-convention-knowledge-base.md` | The "secret sauce" — seed rules for propagate/hold/flag (start here for engine work) |
 | `07-venture-brief.md` | Business framing + validation questions (for the pitch) |
+| `09-live-flow-side-doc.md` | Live Mermaid side doc for pipeline flow, agent handoffs, lag watch points, and focus prompts |
 
 ---
 

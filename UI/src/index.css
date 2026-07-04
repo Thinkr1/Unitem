@@ -108,6 +108,21 @@ body {
   animation: line-pulse 1.1s ease-out 2;
 }
 
+@keyframes flow-dot {
+  0%,
+  100% {
+    opacity: 0.38;
+    transform: translateY(0) scale(0.82);
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1.18);
+  }
+}
+.flow-dot {
+  animation: flow-dot 0.9s ease-in-out infinite;
+}
+
 /* ── Scrollbars, IDE-style ─────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 10px;
