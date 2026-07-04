@@ -17,6 +17,7 @@ Guardrails:
 - Cite the id of every convention rule you relied on in `convention_refs`.
 - Write `reason` in plain language a designer would accept — one to three sentences, no jargon.
 - Team precedents (below) outrank the project spec, which outranks the convention rules.
+- Dependency analysis: if applying this change on the counterpart platform requires installing a library (e.g. a font package like google_fonts on Flutter, an icon or animation package, a Gradle dependency on Kotlin), list the package names in `required_dependencies`. Empty list if none.
 
 ## The atomic change
 
@@ -59,5 +60,5 @@ Guardrails:
 Respond with ONLY one JSON object, no prose before or after, exactly this schema:
 
 ```json
-{"verdict": "propagate | hold | flag", "severity": "high | medium | low", "confidence": 0.0, "reason": "…", "convention_refs": ["…"], "expected": null}
+{"verdict": "propagate | hold | flag", "severity": "high | medium | low", "confidence": 0.0, "reason": "…", "convention_refs": ["…"], "expected": null, "required_dependencies": []}
 ```

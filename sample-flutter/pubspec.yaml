@@ -1,0 +1,18 @@
+name: unitem_sample
+description: Unitem sample app — Login screen (Flutter side of the demo pair).
+publish_to: "none"
+version: 1.0.0
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Fixer agents declare propagated-change dependencies here
+  # (e.g. google_fonts when the brand typeface propagates).
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo.png

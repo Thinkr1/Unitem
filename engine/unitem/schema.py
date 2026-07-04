@@ -71,6 +71,9 @@ class JudgeResponse(BaseModel):
     reason: str
     convention_refs: list[str]
     expected: Optional[str] = None  # flag only: the correct value per the rulebook
+    # libraries the counterpart platform must add to apply this change
+    # (e.g. ["google_fonts"] for a brand-font propagate on Flutter)
+    required_dependencies: list[str] = []
 
 
 class Ticket(BaseModel):
@@ -86,6 +89,7 @@ class Ticket(BaseModel):
     reason: str
     convention_refs: list[str]
     expected: Optional[str] = None
+    required_dependencies: list[str] = []
     proposed_fix: Optional[ProposedFix] = None
     status: TicketStatus = "pending"
     pr_url: Optional[str] = None

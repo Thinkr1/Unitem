@@ -116,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
     common.add_argument("--config", default="unitem.yaml", help="path to unitem.yaml")
 
     p_diff = sub.add_parser("diff", parents=[common], help="judge design changes (demo path)")
-    p_diff.add_argument("--runner", choices=["mock", "cursor"], default=None)
+    p_diff.add_argument("--runner", choices=["mock", "cursor", "claude"], default=None)
     p_diff.add_argument("--changes-file", help="seeded AtomicChange JSON (skips git detection)")
     p_diff.add_argument("--base", default="HEAD", help="git ref to diff against")
     p_diff.add_argument("--screen", default=None)

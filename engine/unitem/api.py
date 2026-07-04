@@ -162,6 +162,7 @@ def ticket_to_ui(ticket: Ticket, cfg: Config) -> dict:
         "confidence": ticket.confidence,
         "reason": ticket.reason,
         "conventionRefs": ticket.convention_refs,
+        "requiredDependencies": ticket.required_dependencies,
         "originPlatform": change.origin_platform,
         "proposedFix": (
             {
@@ -231,6 +232,13 @@ def _flatten_dart_for_preview(code: str, screen_path: Path) -> str | None:
         dep_code = re.sub(r"import\s+'package:flutter/[^']+';\n?", "", dep.read_text(encoding="utf-8"))
         inlined_parts.append(dep_code.strip())
     flattened = re.sub(r"import\s+'(?!package:)[^']+';\n?", "", code)
+    # DartPad has no asset bundle — swap asset images for the FlutterLogo so
+    # the preview renders clean instead of a red decode-error box.
+    flattened = re.sub(
+        r"Image\.asset\([^)]*\)",
+        "const FlutterLogo(size: 96)",
+        flattened,
+    )
     return flattened.rstrip() + "\n\n// ── inlined for preview ──\n" + "\n\n".join(inlined_parts) + "\n"
 
 

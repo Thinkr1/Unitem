@@ -185,6 +185,14 @@ def apply_fix(ticket: Ticket, cfg: Config) -> list[Path]:
 
 def _fix_instruction(ticket: Ticket, cfg: Config) -> str:
     change = ticket.change
+    deps = ""
+    if ticket.required_dependencies:
+        deps = (
+            f"\nDependency step: applying this change requires these libraries on the "
+            f"target platform: {', '.join(ticket.required_dependencies)}. Declare them in "
+            f"the target's manifest (pubspec.yaml for Flutter, app/build.gradle for "
+            f"Kotlin) with a sensible stable version before making the code edit."
+        )
     if ticket.verdict == "propagate" and change.kind == "token":
         group, _, token = change.name.partition(".")
         return (
@@ -194,6 +202,7 @@ def _fix_instruction(ticket: Ticket, cfg: Config) -> str:
             f"source and regenerate the platform files:\n"
             f"1. Edit design-tokens/tokens.json: set {group}.{token}.value to \"{change.after}\".\n"
             f"2. Run: npx -y style-dictionary@4 build --config design-tokens/config.mjs\n"
+            f"{deps}\n"
             f"3. Verify the counterpart file "
             f"({change.counterpart_location.file if change.counterpart_location else 'the generated theme'}) "
             f"now contains {change.after}.\n"
@@ -205,7 +214,7 @@ def _fix_instruction(ticket: Ticket, cfg: Config) -> str:
         f"{change.after} is hardcoded. Replace it with the design token whose value is "
         f"{ticket.expected} (look in the same platform's theme file for the token name; "
         f"add the import if that language requires it).\n"
-        f"Context: {ticket.reason}\n"
+        f"Context: {ticket.reason}\n{deps}\n"
         f"Touch ONLY that file. Do not commit. Reply with a one-line summary."
     )
 

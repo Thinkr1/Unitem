@@ -220,6 +220,7 @@ def judge_change(change: AtomicChange, ctx: JudgeContext, runner: Runner) -> Tic
         reason=response.reason,
         convention_refs=response.convention_refs,
         expected=response.expected,
+        required_dependencies=response.required_dependencies,
     )
 
 
