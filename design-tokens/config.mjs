@@ -39,6 +39,26 @@ ${numberLines}
 `;
 }
 
+function flutterTheme({ dictionary }) {
+  const colors = dictionary.allTokens.filter((t) => t.path[0] === "color");
+  const numbers = dictionary.allTokens.filter((t) => t.path[0] !== "color");
+  const colorLines = colors
+    .map((t) => `  static const Color ${t.path[1]} = Color(0xFF${t.value.slice(1).toUpperCase()});`)
+    .join("\n");
+  const numberLines = numbers
+    .map((t) => `  static const double ${t.path[1]} = ${t.value};`)
+    .join("\n");
+  return `import 'package:flutter/material.dart';
+
+// ${HEADER}
+
+class AppTheme {
+${colorLines}
+${numberLines}
+}
+`;
+}
+
 function composeColors({ dictionary }) {
   const colors = dictionary.allTokens.filter((t) => t.path[0] === "color");
   const lines = colors
@@ -60,6 +80,7 @@ export default {
     formats: {
       "swiftui/theme": swiftuiTheme,
       "compose/theme-colors": composeColors,
+      "flutter/theme": flutterTheme,
     },
   },
   platforms: {
@@ -70,6 +91,10 @@ export default {
     android: {
       buildPath: "sample-android/app/src/main/java/com/unitem/sample/ui/theme/",
       files: [{ destination: "Color.kt", format: "compose/theme-colors" }],
+    },
+    flutter: {
+      buildPath: "sample-flutter/lib/",
+      files: [{ destination: "theme.dart", format: "flutter/theme" }],
     },
   },
 };
