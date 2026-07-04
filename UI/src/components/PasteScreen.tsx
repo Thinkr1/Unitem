@@ -91,8 +91,9 @@ export default function PasteScreen({
 
         <div className="mt-4 flex shrink-0 items-center justify-between">
           <p className="text-[11px] text-ink-faint">
-            The Android side renders live via DartPad. iOS shows a schematic
-            preview.
+            Both sides render as an interactive schematic inside a live
+            device mockup — iOS in a Simulator window, Android in an
+            Emulator window.
           </p>
           <button
             onClick={() => onAnalyze({ iosCode, androidCode })}

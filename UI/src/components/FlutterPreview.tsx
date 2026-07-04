@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { wrapDartForPreview } from '../lib/flutterHarness'
-import { PixelFrame, StudioCanvas } from './LoginPreview'
+import { PixelFrame, EmulatorWindow } from './LoginPreview'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FlutterPreview renders pasted Dart *for real* by embedding DartPad and
 // injecting the source over postMessage. DartPad compiles Flutter to web and
 // runs it inside the iframe, so this is a true render (network required).
+//
+// Not wired into ScreenPanel's default "Visual" tab (that now uses the
+// reactive LoginPreview schematic for both platforms, matching iOS and
+// letting the mockup respond instantly to resolved fixes). Kept here for
+// genuinely custom/pasted Dart that the schematic can't represent.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DARTPAD_ORIGIN = 'https://dartpad.dev'
@@ -84,7 +89,7 @@ export default function FlutterPreview({ code, device, rulebook = {} }: FlutterP
   }
 
   return (
-    <StudioCanvas device={device}>
+    <EmulatorWindow device={device}>
       <div className="relative">
         <PixelFrame>
           <iframe
@@ -119,6 +124,6 @@ export default function FlutterPreview({ code, device, rulebook = {} }: FlutterP
           </div>
         )}
       </div>
-    </StudioCanvas>
+    </EmulatorWindow>
   )
 }
