@@ -228,8 +228,16 @@ def judge_all(
     ctx: JudgeContext,
     runner: Runner,
     concurrency: int = 4,
+    on_result=None,
 ) -> list[Ticket]:
     if not changes:
         return []
+
+    def _one(change: AtomicChange) -> Ticket:
+        ticket = judge_change(change, ctx, runner)
+        if on_result:
+            on_result(ticket)
+        return ticket
+
     with ThreadPoolExecutor(max_workers=max(1, concurrency)) as pool:
-        return list(pool.map(lambda c: judge_change(c, ctx, runner), changes))
+        return list(pool.map(_one, changes))

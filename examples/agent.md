@@ -7,7 +7,7 @@ generic convention rules; team overrides (overrides.jsonl) override both.
 
 | Token | Value | Notes |
 |---|---|---|
-| color.brandPrimary | #6366F1 | brand indigo — must match on both platforms |
+| color.brandPrimary | #E11D48 | brand rose (2026 refresh) — must match on both platforms |
 | color.brandInk | #1A1B4B | headings |
 | color.textSecondary | #8A8BB3 | secondary text, links like "Forgot password?" |
 | color.surface | #FFFFFF | default background |

@@ -36,6 +36,42 @@ class AnalyzeBody(BaseModel):
     screen: str = "pasted"
 
 
+class Progress:
+    """Live pipeline stage, polled by the UI's pipeline strip (GET /progress)."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.state = "idle"  # idle | running
+        self.stage = ""  # discover | map | judge | fix | review
+        self.detail = ""
+        self.done = 0
+        self.total = 0
+
+    def set(self, stage: str, detail: str = "", done: int = 0, total: int = 0) -> None:
+        with self.lock:
+            self.state = "running"
+            self.stage, self.detail, self.done, self.total = stage, detail, done, total
+
+    def bump(self) -> None:
+        with self.lock:
+            self.done += 1
+
+    def idle(self) -> None:
+        with self.lock:
+            self.state, self.stage, self.detail = "idle", "", ""
+            self.done = self.total = 0
+
+    def snapshot(self) -> dict:
+        with self.lock:
+            return {
+                "state": self.state,
+                "stage": self.stage,
+                "detail": self.detail,
+                "done": self.done,
+                "total": self.total,
+            }
+
+
 class Store:
     """Tickets + source panels, persisted back to out/tickets.json on change."""
 
@@ -218,6 +254,11 @@ def create_app(cfg: Config) -> FastAPI:
         allow_headers=["*"],
     )
     store = Store(cfg)
+    progress = Progress()
+
+    @app.get("/progress")
+    def get_progress() -> dict:
+        return progress.snapshot()
 
     @app.get("/comparison")
     def comparison(screen: str = "login") -> dict:
@@ -240,30 +281,59 @@ def create_app(cfg: Config) -> FastAPI:
         from .judge import JudgeContext, judge_all, load_overrides, load_rules
         from .runner import get_runner
 
-        changes = detect_changes(cfg)
-        ctx = JudgeContext(
-            rules=load_rules(cfg.conventions),
-            agent_md=cfg.read_agent_md(),
-            overrides=load_overrides(cfg.overrides_file),
-            mode="diff",
-            counterpart_slices={
-                c.id: _slice_for(cfg, c) for c in changes if c.counterpart_location
-            },
-            timeout_s=cfg.runner.timeout_s,
-        )
-        runner = get_runner(cfg)
-        tickets = sort_tickets(dedupe(judge_all(changes, ctx, runner, cfg.runner.concurrency)))
-        with store.lock:
-            previous = store.tickets if store.tickets.tickets else None
-            tickets = assign_ids(tickets, previous)
-            for ticket in tickets:
-                if ticket.verdict in ("propagate", "flag") and ticket.proposed_fix is None:
-                    ticket.proposed_fix = generate_fix(ticket, cfg)
-            store.tickets = TicketFile(
-                run_id=time.strftime("%Y%m%d-%H%M%S"), mode="diff", screen=screen, tickets=tickets
+        try:
+            progress.set("discover", "extracting design facts from both codebases")
+            changes = detect_changes(cfg)
+            progress.set("map", "pairing screens across platforms")
+            ctx = JudgeContext(
+                rules=load_rules(cfg.conventions),
+                agent_md=cfg.read_agent_md(),
+                overrides=load_overrides(cfg.overrides_file),
+                mode="diff",
+                counterpart_slices={
+                    c.id: _slice_for(cfg, c) for c in changes if c.counterpart_location
+                },
+                timeout_s=cfg.runner.timeout_s,
             )
-            store.save()
-        return comparison(screen)
+            runner = get_runner(cfg)
+            agent_word = "agent" if runner.name == "cursor" else "replay"
+            progress.set(
+                "judge",
+                f"{len(changes)} changes → one {agent_word} each, parallel",
+                0,
+                len(changes),
+            )
+            tickets = sort_tickets(
+                dedupe(
+                    judge_all(
+                        changes,
+                        ctx,
+                        runner,
+                        cfg.runner.concurrency,
+                        on_result=lambda t: progress.bump(),
+                    )
+                )
+            )
+            with store.lock:
+                previous = store.tickets if store.tickets.tickets else None
+                tickets = assign_ids(tickets, previous)
+                fixable = [t for t in tickets if t.verdict in ("propagate", "flag")]
+                progress.set("fix", "generating fix previews", 0, len(fixable))
+                for ticket in fixable:
+                    if ticket.proposed_fix is None:
+                        ticket.proposed_fix = generate_fix(ticket, cfg)
+                    progress.bump()
+                store.tickets = TicketFile(
+                    run_id=time.strftime("%Y%m%d-%H%M%S"),
+                    mode="diff",
+                    screen=screen,
+                    tickets=tickets,
+                )
+                store.save()
+            progress.set("review", "verdicts ready for human review")
+            return comparison(screen)
+        finally:
+            progress.idle()
 
     @app.post("/analyze")
     def analyze(body: AnalyzeBody) -> dict:
@@ -331,7 +401,12 @@ def create_app(cfg: Config) -> FastAPI:
                 return ticket_to_ui(ticket, cfg)
             from .generate import apply_and_pr
 
-            apply_and_pr(ticket, cfg)
+            try:
+                fixer = "fixer agent" if cfg.runner.name == "cursor" else "mechanical fix"
+                progress.set("fix", f"{fixer} applying {ticket.id} ({ticket.change.name})")
+                apply_and_pr(ticket, cfg)
+            finally:
+                progress.idle()
             ticket.status = "accepted"
             store.save()
             return ticket_to_ui(ticket, cfg)

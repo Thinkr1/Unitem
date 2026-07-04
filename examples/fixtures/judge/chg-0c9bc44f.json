@@ -1,0 +1,8 @@
+{
+  "verdict": "flag",
+  "severity": "high",
+  "confidence": 0.95,
+  "reason": "The Android 'Forgot password?' link hardcodes green #22C55E instead of the textSecondary token. The project spec assigns that link role to #8A8BB3, and iOS already uses Theme.textSecondary correctly — do not copy this to iOS; fix Android to use the token.",
+  "convention_refs": ["flag/hardcoded-color"],
+  "expected": "#8A8BB3"
+}
