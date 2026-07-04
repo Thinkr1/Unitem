@@ -1,0 +1,247 @@
+# Unitem convention knowledge base — the "taste" that grounds every verdict.
+#
+# Each rule: id (verdict/slug) · verdict · applies_to (categories) · when
+# (matching condition, plain language) · why (the explanation the classifier
+# cites) · examples.
+#
+# Precedence at judge time: overrides.jsonl > project agent.md > this file.
+# Seed source: docs/06-convention-knowledge-base.md (Apple HIG vs Material).
+
+rules:
+  # ── PROPAGATE — brand & shared semantics belong everywhere ────────────────
+
+  - id: propagate/brand-color
+    verdict: propagate
+    applies_to: [color]
+    when: "the changed value is a brand or accent color token (primary, secondary, accent)"
+    why: "Brand colors express product identity; they must be identical across platforms or the product looks like two different apps."
+    examples:
+      - "brandPrimary #4F46E5 -> #6366F1 on iOS should apply to Android's BrandPrimary"
+
+  - id: propagate/semantic-color
+    verdict: propagate
+    applies_to: [color, accessibility]
+    when: "the changed color is a semantic role token: error, success, warning, info"
+    why: "Semantic colors carry meaning (red = error on both platforms); diverging them breaks learned associations."
+    examples:
+      - "color.error #DC2626 -> #B91C1C should apply to both platforms"
+
+  - id: propagate/brand-typography
+    verdict: propagate
+    applies_to: [typography]
+    when: "the brand font family or a type-scale token (heading/body size) changes"
+    why: "The brand typeface and type scale are identity, not platform furniture. (The platform *system* font is different — see hold/system-font.)"
+    examples:
+      - "heading size 28 -> 30 in the type scale should apply to both platforms"
+
+  - id: propagate/spacing-scale
+    verdict: propagate
+    applies_to: [spacing, layout]
+    when: "the spacing base unit or the scale itself changes (e.g. 8pt grid -> 4pt grid)"
+    why: "The spacing rhythm is a shared design decision; both platforms must follow the same scale."
+    examples:
+      - "spacingUnit 8 -> 4 applies to both platforms"
+
+  - id: propagate/radius-brand
+    verdict: propagate
+    applies_to: [component, layout]
+    when: "a corner-radius token that expresses global brand roundness changes (not a control-specific platform default)"
+    why: "A global roundness value is a brand expression. Control-specific radii imposed by the platform (e.g. UISwitch capsule) stay native."
+    examples:
+      - "radiusButton 12 -> 8 as a brand decision applies to both platforms"
+
+  - id: propagate/iconography
+    verdict: propagate
+    applies_to: [content, component]
+    when: "the logo or brand icon assets change"
+    why: "Brand assets are identity; both platforms ship the same mark."
+    examples:
+      - "new logo.png replaces old on iOS -> Android gets the same asset"
+
+  - id: propagate/copy-label
+    verdict: propagate
+    applies_to: [content]
+    when: "user-facing wording changes (button labels, headings, messages)"
+    why: "Copy is product voice; the same action must read the same on both platforms."
+    examples:
+      - "primary auth button 'Log in' -> 'Sign In' applies to both platforms"
+
+  - id: propagate/shared-behavior
+    verdict: propagate
+    applies_to: [component, content]
+    when: "component logic that is not platform-specific changes: validation rules, states, thresholds"
+    why: "Business behavior (what counts as a valid email, when a button disables) is shared product logic, not platform idiom."
+    examples:
+      - "password minimum length 8 -> 12 applies to both platforms"
+
+  - id: propagate/a11y-minimums
+    verdict: propagate
+    applies_to: [accessibility, typography]
+    when: "an accessibility minimum changes: minimum body text size, minimum contrast target"
+    why: "Accessibility floors are product commitments; they apply everywhere."
+    examples:
+      - "minimum body text 14 -> 16 applies to both platforms"
+
+  # ── HOLD — platform idioms should stay different ──────────────────────────
+
+  - id: hold/native-switch
+    verdict: hold
+    applies_to: [component]
+    when: "a toggle/switch is changed to (or styled as) the platform-native control"
+    why: "Apple HIG expects the iOS switch; Material Design specifies its own Switch with different track/thumb metrics. Each platform keeping its native control is correct divergence, not drift."
+    examples:
+      - "iOS Toggle restyled to native switch -> Android keeps Material Switch"
+
+  - id: hold/navigation-idiom
+    verdict: hold
+    applies_to: [navigation]
+    when: "navigation structure changes toward a platform pattern: iOS back-swipe/chevron/large titles vs Android up/back + top app bar"
+    why: "Navigation is muscle memory. iOS users expect edge-swipe and a left chevron; Android has a system back affordance and app-bar 'up'. Unifying them breaks both platforms' users."
+    examples:
+      - "iOS adopts large-title header -> Android keeps its top app bar"
+
+  - id: hold/tab-bar
+    verdict: hold
+    applies_to: [navigation, component]
+    when: "bottom navigation is restyled to the platform pattern (iOS tab bar vs Material bottom navigation/navigation bar)"
+    why: "Same role, different idiom: HIG tab bar and Material navigation bar have different heights, label rules, and selection treatments."
+    examples:
+      - "iOS tab bar styling change -> Android navigation bar stays Material"
+
+  - id: hold/pickers
+    verdict: hold
+    applies_to: [component]
+    when: "date/time pickers change toward the platform-native picker"
+    why: "iOS uses wheel/compact pickers; Material has its own date/time picker dialogs. Users expect their platform's picker."
+    examples:
+      - "iOS date wheel restyle -> Android keeps Material date picker"
+
+  - id: hold/system-font
+    verdict: hold
+    applies_to: [typography]
+    when: "text uses the platform system font and the change concerns that system font (SF Pro on iOS, Roboto on Android)"
+    why: "When the design intent is 'system font', each platform correctly renders its own. Only a *brand* typeface propagates (see propagate/brand-typography)."
+    examples:
+      - "iOS body switches to SF Pro Text -> Android keeps Roboto"
+
+  - id: hold/elevation-shadow
+    verdict: hold
+    applies_to: [component, layout]
+    when: "shadow/elevation treatment changes toward the platform style"
+    why: "Material uses systematic elevation levels; iOS favors flatter, subtler shadows. Matching them pixel-for-pixel makes one platform look foreign."
+    examples:
+      - "Android card elevation 2dp per Material spec -> iOS keeps flat card with hairline border"
+
+  - id: hold/touch-feedback
+    verdict: hold
+    applies_to: [component]
+    when: "touch feedback changes toward the platform pattern (Material ripple vs iOS highlight/opacity)"
+    why: "Ripple is a Material signature; iOS uses opacity/highlight states. Each is correct on its platform."
+    examples:
+      - "Android button gains ripple -> iOS keeps opacity press state"
+
+  - id: hold/dialogs
+    verdict: hold
+    applies_to: [component, navigation]
+    when: "dialogs/action sheets are restyled toward the platform pattern (iOS action sheet vs Material dialog/bottom sheet)"
+    why: "Confirmation surfaces have distinct platform grammars — iOS action sheets slide from the bottom with centered options; Material dialogs float with left-aligned actions."
+    examples:
+      - "iOS destructive confirm becomes action sheet -> Android keeps Material dialog"
+
+  - id: hold/touch-target-default
+    verdict: hold
+    applies_to: [component, accessibility, spacing]
+    when: "default touch-target sizing follows the platform minimum (44pt iOS vs 48dp Android)"
+    why: "Each platform documents its own minimum target; matching the numbers across platforms would violate one platform's guidelines."
+    examples:
+      - "iOS control at 44pt while Android is 48dp is correct, not drift"
+
+  - id: hold/safe-areas
+    verdict: hold
+    applies_to: [layout]
+    when: "layout adjusts to platform chrome: notches, safe areas, status bar, gesture bars"
+    why: "Hardware and system chrome differ; safe-area handling is inherently per-platform."
+    examples:
+      - "iOS adds top safe-area inset -> Android layout unchanged"
+
+  - id: hold/haptics
+    verdict: hold
+    applies_to: [component]
+    when: "haptic feedback patterns change"
+    why: "Haptic vocabularies are platform-specific (UIFeedbackGenerator vs Android vibration effects); they don't translate one-to-one."
+    examples:
+      - "iOS adds success haptic on sign-in -> Android chooses its own pattern"
+
+  - id: hold/back-button
+    verdict: hold
+    applies_to: [navigation]
+    when: "presence/absence of an explicit back control differs between platforms"
+    why: "Android has a system back gesture/button; iOS relies on in-app chevron + edge swipe. An explicit back button on iOS with none on Android is correct."
+    examples:
+      - "iOS shows chevron, Android relies on system back — correct divergence"
+
+  # ── FLAG — real drift and regressions ─────────────────────────────────────
+
+  - id: flag/stale-token
+    verdict: flag
+    applies_to: [color, spacing, typography, component]
+    when: "one platform still uses the OLD value of a token that was updated on the other platform or in the design source"
+    why: "A stale value means the platforms silently diverged from the shared standard — the exact drift Unitem exists to catch."
+    examples:
+      - "Android still Color(0xFF4F46E5) after brandPrimary moved to #6366F1"
+
+  - id: flag/hardcoded-color
+    verdict: flag
+    applies_to: [color]
+    when: "a raw hex/color literal is used in UI code instead of a defined token"
+    why: "Hardcoded values bypass the single source of truth; the next token update will miss them, guaranteeing future drift."
+    examples:
+      - "Text(color = Color(0xFF5A55F2)) instead of TextSecondary"
+
+  - id: flag/hardcoded-dimension
+    verdict: flag
+    applies_to: [spacing, typography, layout]
+    when: "a raw numeric size/spacing literal is used where a token exists for that role"
+    why: "Same failure mode as hardcoded colors: the literal detaches from the scale and drifts."
+    examples:
+      - ".padding(.vertical, 20) where button padding token is 16"
+
+  - id: flag/off-scale
+    verdict: flag
+    applies_to: [spacing, layout]
+    when: "a spacing/size value is not on the defined scale (e.g. 7 or 18 on an 8-based scale)"
+    why: "Off-scale values break visual rhythm and are almost always accidental."
+    examples:
+      - "spacing 18 where the scale is 8/16/24/32"
+
+  - id: flag/reimplemented-component
+    verdict: flag
+    applies_to: [component]
+    when: "a bespoke near-duplicate of a shared component appears instead of reusing it"
+    why: "Duplicate components fork styling decisions; every future change now has to land twice."
+    examples:
+      - "payments team ships its own button with 6px corners next to the shared 12px button"
+
+  - id: flag/min-text-size
+    verdict: flag
+    applies_to: [typography, accessibility]
+    when: "text is set below the minimum body-text size in the project spec"
+    why: "Below-minimum text is an accessibility regression, not a stylistic choice."
+    examples:
+      - "caption at 10 where the minimum is 12"
+
+  - id: flag/contrast-aa
+    verdict: flag
+    applies_to: [color, accessibility]
+    when: "a text/background pairing falls below the WCAG AA contrast ratio (4.5:1 body, 3:1 large text)"
+    why: "Contrast failures exclude low-vision users and usually enter silently via a 'small' color tweak. The deterministic contrast check grounds this in a number."
+    examples:
+      - "#8A8BB3 body text on #FFFFFF is 3.1:1 — below AA for body text"
+
+  - id: flag/naming-mismatch
+    verdict: flag
+    applies_to: [component, missing-screen, content]
+    when: "token/screen/component names no longer line up across platforms (or a screen exists on only one platform)"
+    why: "Name alignment is what makes cross-platform reasoning possible; a broken mapping hides future drift."
+    examples:
+      - "iOS has PaymentSheetView but Android has no mapped counterpart"
