@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Unitem Consistency Report</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 2rem; line-height: 1.5; }
+  h1 { margin: 0 0 .25rem; }
+  .meta { opacity: .7; font-size: .9rem; margin-bottom: 1.5rem; }
+  .cards { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; }
+  .card { border: 1px solid rgba(128,128,128,.3); border-radius: 12px; padding: 1rem 1.25rem; min-width: 120px; }
+  .card .n { font-size: 2rem; font-weight: 700; }
+  .card .l { opacity: .7; font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid rgba(128,128,128,.25); vertical-align: top; }
+  th { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; opacity: .7; }
+  .badge { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 600; border: 1px solid currentColor; }
+  .sev-critical { color: #d11; }
+  .sev-high { color: #e56; }
+  .sev-medium { color: #d90; }
+  .sev-low { color: #38a; }
+  .sev-info { color: #789; }
+  code { background: rgba(128,128,128,.15); padding: .05rem .3rem; border-radius: 5px; font-size: .85em; }
+  .fix { opacity: .85; font-size: .9rem; }
+  .id { font-family: ui-monospace, monospace; font-size: .8rem; opacity: .7; }
+  .loc { font-family: ui-monospace, monospace; font-size: .78rem; opacity: .8; }
+  .empty { padding: 2rem; text-align: center; opacity: .7; }
+</style>
+</head>
+<body>
+  <h1>Unitem Consistency Report</h1>
+  <div class="meta">
+    Generated {{ report.generated_at }} &middot; unitem {{ report.tool_version }}<br />
+    iOS: <code>{{ report.ios_path }}</code> &middot; Android: <code>{{ report.android_path }}</code>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="n">{{ report.tickets|length }}</div><div class="l">Tickets</div></div>
+    <div class="card"><div class="n">{{ report.expected_native_count }}</div><div class="l">Expected-native</div></div>
+    {% for sev, n in report.stats.by_severity.items() %}
+    <div class="card"><div class="n sev-{{ sev }}">{{ n }}</div><div class="l">{{ sev }}</div></div>
+    {% endfor %}
+  </div>
+
+  {% if report.tickets %}
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Severity</th><th>Feature</th><th>Category</th><th>Issue</th><th>Locations</th></tr>
+    </thead>
+    <tbody>
+      {% for t in report.tickets %}
+      <tr>
+        <td class="id">{{ t.id }}</td>
+        <td><span class="badge sev-{{ t.severity.value }}">{{ t.severity.value }}</span></td>
+        <td>{{ t.feature }}</td>
+        <td>{{ t.category.value }}</td>
+        <td>
+          <strong>{{ t.title }}</strong><br />
+          {{ t.description }}
+          {% if t.rationale %}<br /><em>Why:</em> {{ t.rationale }}{% endif %}
+          {% if t.suggested_fix %}<br /><span class="fix"><em>Fix:</em> {{ t.suggested_fix }}</span>{% endif %}
+        </td>
+        <td class="loc">
+          {% for l in t.locations %}{{ l.platform.value }}: {{ l.file }}{% if l.line %}:{{ l.line }}{% endif %}<br />{% endfor %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No inconsistencies found. Both platforms are consistent per the design principles.</div>
+  {% endif %}
+</body>
+</html>

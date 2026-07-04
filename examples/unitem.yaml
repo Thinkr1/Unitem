@@ -1,0 +1,15 @@
+# Example unitem configuration.
+# Paths are resolved relative to this file.
+ios_path: ios
+android_path: android
+agent_md_path: agent.md
+output_dir: .unitem
+
+# Cursor agent execution (only used for real, non-mock runs).
+# model: composer-2
+concurrency: 4
+
+# Optional human overrides for the auto-generated screen mapping.
+# mapping_overrides_path: mapping.overrides.yaml
+
+min_mapping_confidence: 0.35
