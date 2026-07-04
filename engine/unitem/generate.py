@@ -123,6 +123,9 @@ def generate_fix(ticket: Ticket, cfg: Config) -> ProposedFix | None:
     if ticket.verdict == "hold":
         return None
     candidates = [cfg.tokens_file, *cfg.ios_root.rglob("*"), *cfg.android_root.rglob("*")]
+    candidates.append(cfg.root / ticket.change.location.file)
+    if ticket.change.counterpart_location:
+        candidates.append(cfg.root / ticket.change.counterpart_location.file)
     snapshot = {p: p.read_text(encoding="utf-8") for p in candidates if p.is_file()}
     try:
         touched = _transform(ticket, cfg)
