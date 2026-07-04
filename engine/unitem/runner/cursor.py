@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 from .base import Runner, RunnerError
@@ -52,6 +53,12 @@ class CursorRunner(Runner):
         self.binary = _find_binary()
         self.model = model
         self.timeout_s = timeout_s
+        # Judges must be READ-ONLY: they answer from the prompt's grounded
+        # slices, never by touching the repo. An eager agent WILL "helpfully"
+        # apply the fix it just judged (observed with Opus xhigh), so judge
+        # processes run inside an empty sandbox dir — nothing there to edit.
+        # Fixer agents run in the repo on purpose (generate.apply_fix_with_agent).
+        self.sandbox = Path(tempfile.mkdtemp(prefix="unitem-judge-"))
 
     def complete(self, prompt: str, *, key: str | None = None, timeout_s: int = 120) -> str:
         n = _log_spawn(key, self.model)
@@ -65,6 +72,7 @@ class CursorRunner(Runner):
                 capture_output=True,
                 text=True,
                 timeout=timeout_s or self.timeout_s,
+                cwd=self.sandbox,
             )
         except subprocess.TimeoutExpired as err:
             raise RunnerError(f"cursor-agent timed out after {timeout_s}s") from err
