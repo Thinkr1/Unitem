@@ -1,8 +1,11 @@
 {
   "verdict": "propagate",
   "severity": "high",
-  "confidence": 0.94,
-  "reason": "The brand primary color token changed on iOS. Brand colors express product identity and must be identical on both platforms — Android's BrandPrimary still holds the old value #4F46E5 and should be updated to #6366F1.",
-  "convention_refs": ["propagate/brand-color"],
+  "confidence": 0.97,
+  "reason": "Primary brand color is a shared identity token, and the project spec defines it as #6366F1 on both platforms. iOS now matches that value; the Flutter counterpart is still on the old #4F46E5 and should be updated so both apps read as the same brand.",
+  "convention_refs": [
+    "propagate/brand-color",
+    "flag/stale-token"
+  ],
   "expected": null
 }

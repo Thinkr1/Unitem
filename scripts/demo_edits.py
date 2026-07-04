@@ -43,8 +43,7 @@ def edit_2_hold() -> None:
         LOGIN_IOS,
         'Toggle("Remember me", isOn: $rememberMe)',
         'Toggle("Remember me", isOn: $rememberMe)\n'
-        "                .toggleStyle(.switch)\n"
-        "                .tint(Theme.brandPrimary)",
+        "                .toggleStyle(.switch)",
     )
     print("scenario 2 (hold): iOS toggle restyled natively — Android should keep Material Switch.")
 

@@ -1,8 +1,0 @@
-{
-  "verdict": "hold",
-  "severity": "low",
-  "confidence": 0.91,
-  "reason": "iOS restyled its 'Remember me' toggle to the native switch appearance. This is a platform idiom, not drift: Apple HIG expects the iOS switch, while Material Design gives Android its own Switch with a different track and thumb. Android should keep its Material Switch — this difference is correct.",
-  "convention_refs": ["hold/native-switch"],
-  "expected": null
-}

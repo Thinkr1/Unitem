@@ -1,0 +1,10 @@
+{
+  "verdict": "hold",
+  "severity": "low",
+  "confidence": 0.95,
+  "reason": "Applying `.toggleStyle(.switch)` on iOS is choosing Apple’s native switch control for a boolean preference, which matches Apple HIG. The Flutter screen already uses a Material `Switch` for the same “Remember me” setting—platform-native toggles should look and behave like their own system, not like each other.",
+  "convention_refs": [
+    "hold/native-switch"
+  ],
+  "expected": null
+}
