@@ -10,7 +10,12 @@ fixtures_dir: examples/fixtures
 screen: login
 
 runner:
-  name: cursor      # mock | cursor  (cursor = live agents via subscription; mock = fixture replay, offline)
+  name: mock        # mock | cursor  (cursor = live agents via subscription; mock = fixture replay, offline)
+                     # NOTE: `unitem diff --runner cursor` on the CLI overrides this per-invocation, but
+                     # `unitem serve`'s /analyze and /rescan always use this config value (no CLI override
+                     # exists for `serve`) — so this must be `mock` for local dev without a cursor-agent
+                     # login, matching the documented offline/stage-fallback story. Flip to `cursor` only
+                     # once `cursor-agent login` is set up on the machine running `unitem serve`.
   model: auto
   concurrency: 4
   timeout_s: 120
