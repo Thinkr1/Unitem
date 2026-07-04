@@ -31,3 +31,6 @@ Thumbs.db
 out/
 engine/unitem.egg-info/
 __pycache__/
+
+
+UI/package-lock.json
