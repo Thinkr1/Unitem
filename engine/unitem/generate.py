@@ -134,15 +134,39 @@ def _unified_diff(path: Path, before: str, after: str, root: Path) -> str:
     )
 
 
+def _read_text_or_none(path: Path) -> str | None:
+    """Best-effort read; returns None for anything that isn't UTF-8 text.
+
+    The ios/android roots may contain non-source artifacts (Xcode
+    xcuserdata plists, build output, images, .DS_Store, etc.) that are
+    irrelevant to any fix transformation but would otherwise crash the
+    snapshot step with a UnicodeDecodeError.
+    """
+    try:
+        return path.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        return None
+
+
 def generate_fix(ticket: Ticket, cfg: Config) -> ProposedFix | None:
     """Preview the fix as a diff without leaving changes on disk."""
     if ticket.verdict == "hold":
         return None
-    candidates = [cfg.tokens_file, *cfg.ios_root.rglob("*"), *cfg.android_root.rglob("*")]
-    candidates.append(cfg.root / ticket.change.location.file)
+    candidates = [
+        cfg.tokens_file,
+        cfg.root / "sample-flutter/lib/theme.dart",
+        *cfg.ios_root.rglob("*.swift"),
+        *cfg.android_root.rglob("*.kt"),
+        *cfg.android_root.rglob("*.dart"),
+        cfg.root / ticket.change.location.file,
+    ]
     if ticket.change.counterpart_location:
         candidates.append(cfg.root / ticket.change.counterpart_location.file)
-    snapshot = {p: p.read_text(encoding="utf-8") for p in candidates if p.is_file()}
+    snapshot = {
+        p: text
+        for p in candidates
+        if p.is_file() and (text := _read_text_or_none(p)) is not None
+    }
     try:
         touched = _transform(ticket, cfg)
         diff = "".join(

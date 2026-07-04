@@ -17,7 +17,12 @@ def discover_platform(cfg: Config, platform: Platform) -> list[DesignFact]:
     facts: list[DesignFact] = []
     for pattern in _EXTENSIONS[platform]:
         for path in sorted(root.rglob(pattern)):
-            facts.extend(extract_file(path, platform, rel_to=cfg.root))
+            try:
+                facts.extend(extract_file(path, platform, rel_to=cfg.root))
+            except UnicodeDecodeError:
+                # Not real source (e.g. a stray binary artifact sharing the
+                # extension) — skip it rather than failing the whole scan.
+                continue
     return facts
 
 

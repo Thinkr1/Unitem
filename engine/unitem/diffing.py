@@ -267,7 +267,10 @@ def detect_changes(cfg: Config, base_ref: str = "HEAD") -> list[AtomicChange]:
         if platform is None:
             continue
         path = cfg.root / file
-        after_text = path.read_text(encoding="utf-8") if path.is_file() else ""
+        try:
+            after_text = path.read_text(encoding="utf-8") if path.is_file() else ""
+        except UnicodeDecodeError:
+            continue  # not a source file we can parse (binary asset, etc.)
         before_text = _git(cfg, "show", f"{base_ref}:{file}")
         before = extract_text(before_text, file, platform)
         after = extract_text(after_text, file, platform)
