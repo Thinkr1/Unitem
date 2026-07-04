@@ -6,11 +6,37 @@ import ScreenPanel, { type LinePulse } from './components/ScreenPanel'
 import InconsistenciesPanel, {
   type Filter,
 } from './components/InconsistenciesPanel'
-import LiveFlowPanel from './components/LiveFlowPanel'
-import NavRail from './components/NavRail'
+import NavRail, { type NavPage } from './components/NavRail'
 import PasteScreen from './components/PasteScreen'
+import OverviewPage from './components/OverviewPage'
+import AgentsPage from './components/AgentsPage'
+import RulebookPage from './components/RulebookPage'
+import AlertsPage from './components/AlertsPage'
 
 const SEVERITY_RANK: Record<Severity, number> = { error: 3, warning: 2, info: 1 }
+
+const PAGE_META: Record<NavPage, { title: string; subtitle: string }> = {
+  overview: {
+    title: 'Overview',
+    subtitle: 'Daily Goals consistency at a glance',
+  },
+  comparison: {
+    title: 'Daily Goals',
+    subtitle: 'Ready to reconcile iOS & Android?',
+  },
+  agents: {
+    title: 'Agents',
+    subtitle: 'Pipeline monitor and stage details',
+  },
+  rulebook: {
+    title: 'Rulebook',
+    subtitle: 'Shared design tokens and violations',
+  },
+  alerts: {
+    title: 'Alerts',
+    subtitle: 'Open inconsistencies needing attention',
+  },
+}
 
 /** Line number -> highest severity among open inconsistencies on that line. */
 function flaggedLines(
@@ -39,6 +65,7 @@ function ResizeHandle() {
 
 export default function App() {
   const [view, setView] = useState<'paste' | 'dashboard'>('paste')
+  const [page, setPage] = useState<NavPage>('comparison')
   const [iosCode, setIosCode] = useState(mockComparison.ios.code)
   const [androidCode, setAndroidCode] = useState(mockComparison.android.code)
   const [rescanNonce, setRescanNonce] = useState(0)
@@ -51,21 +78,18 @@ export default function App() {
   const [iosPulse, setIosPulse] = useState<LinePulse | null>(null)
   const [androidPulse, setAndroidPulse] = useState<LinePulse | null>(null)
 
-  // BACKEND: replace — call the fix service, then update status from the response.
   const onResolve = (id: string) => {
     setItems((prev) =>
       prev.map((i) => (i.id === id ? { ...i, status: 'resolved' } : i)),
     )
   }
 
-  // BACKEND: replace — persist the ignore, then update status from the response.
   const onIgnore = (id: string) => {
     setItems((prev) =>
       prev.map((i) => (i.id === id ? { ...i, status: 'ignored' } : i)),
     )
   }
 
-  // BACKEND: replace — batch-fix all open inconsistencies via the fix service.
   const onResolveAll = () => {
     setItems((prev) =>
       prev.map((i) => (i.status === 'open' ? { ...i, status: 'resolved' } : i)),
@@ -79,16 +103,25 @@ export default function App() {
     setAndroidPulse({ line: item.android.line, nonce })
   }
 
+  const onSelectFromAlerts = (item: Inconsistency) => {
+    onSelect(item)
+    setPage('comparison')
+  }
+
   const onAnalyze = (payload: { iosCode: string; androidCode: string }) => {
     setIosCode(payload.iosCode)
     setAndroidCode(payload.androidCode)
+    setPage('comparison')
     setView('dashboard')
   }
 
   const active = items.find((i) => i.id === activeId) ?? null
-
   const iosPanel = { ...mockComparison.ios, code: iosCode }
   const androidPanel = { ...mockComparison.android, code: androidCode }
+  const openErrors = items.filter(
+    (i) => i.status === 'open' && i.severity === 'error',
+  ).length
+  const meta = PAGE_META[page]
 
   if (view === 'paste') {
     return (
@@ -105,11 +138,9 @@ export default function App() {
       <header className="app-drag flex h-16 shrink-0 items-center gap-4 pl-24 pr-5">
         <div className="min-w-0">
           <h1 className="font-heading text-[15px] font-bold leading-tight tracking-wide text-ink">
-            Login screen
+            {meta.title}
           </h1>
-          <p className="text-[11.5px] text-ink-muted">
-            Ready to reconcile iOS &amp; Android?
-          </p>
+          <p className="text-[11.5px] text-ink-muted">{meta.subtitle}</p>
         </div>
 
         <div className="ml-auto flex items-center gap-3">
@@ -145,74 +176,95 @@ export default function App() {
             />
           </div>
 
-          <button
-            onClick={() => setRescanNonce((n) => n + 1)}
-            className="flex items-center gap-1.5 rounded-full bg-info-blue px-4 py-2 font-heading text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
+          {page === 'comparison' && (
+            <button
+              onClick={() => setRescanNonce((n) => n + 1)}
+              className="flex items-center gap-1.5 rounded-full bg-info-blue px-4 py-2 font-heading text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
             >
-              <path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4" />
-            </svg>
-            Rescan
-          </button>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4" />
+              </svg>
+              Rescan
+            </button>
+          )}
         </div>
       </header>
-      <LiveFlowPanel />
 
       <div className="flex min-h-0 flex-1 pl-2">
-        <NavRail />
+        <NavRail
+          page={page}
+          onNavigate={setPage}
+          alertCount={openErrors}
+        />
 
-        <Group
-          orientation="horizontal"
-          className="min-h-0 flex-1 pb-4 pr-4 pl-1"
-        >
-          <Panel defaultSize={34} minSize={18} className="!overflow-visible">
-            <ScreenPanel
-              panel={iosPanel}
-              title="iOS · Swift"
-              flaggedLines={flaggedLines(items, 'ios')}
-              activeLine={active?.ios.line ?? null}
-              pulse={iosPulse}
-              activeInconsistency={active}
-              inconsistencies={items}
-            />
-          </Panel>
-          <ResizeHandle />
-          <Panel defaultSize={34} minSize={18} className="!overflow-visible">
-            <ScreenPanel
-              key={`android-${rescanNonce}`}
-              panel={androidPanel}
-              title="Android · Dart"
-              flaggedLines={flaggedLines(items, 'android')}
-              activeLine={active?.android.line ?? null}
-              pulse={androidPulse}
-              activeInconsistency={active}
-              inconsistencies={items}
-            />
-          </Panel>
-          <ResizeHandle />
-          <Panel defaultSize={32} minSize={22} className="!overflow-visible">
-            <InconsistenciesPanel
-              items={items}
-              filter={filter}
-              activeId={activeId}
-              onFilterChange={setFilter}
-              onSelect={onSelect}
-              onResolve={onResolve}
-              onIgnore={onIgnore}
-              onResolveAll={onResolveAll}
-            />
-          </Panel>
-        </Group>
+        {page === 'comparison' ? (
+          <Group
+            orientation="horizontal"
+            className="min-h-0 flex-1 pb-4 pr-4 pl-1"
+          >
+            <Panel defaultSize={34} minSize={18} className="!overflow-visible">
+              <ScreenPanel
+                panel={iosPanel}
+                title="iOS · Swift"
+                flaggedLines={flaggedLines(items, 'ios')}
+                activeLine={active?.ios.line ?? null}
+                pulse={iosPulse}
+                activeInconsistency={active}
+                inconsistencies={items}
+              />
+            </Panel>
+            <ResizeHandle />
+            <Panel defaultSize={34} minSize={18} className="!overflow-visible">
+              <ScreenPanel
+                key={`android-${rescanNonce}`}
+                panel={androidPanel}
+                title="Android · Dart"
+                flaggedLines={flaggedLines(items, 'android')}
+                activeLine={active?.android.line ?? null}
+                pulse={androidPulse}
+                activeInconsistency={active}
+                inconsistencies={items}
+              />
+            </Panel>
+            <ResizeHandle />
+            <Panel defaultSize={32} minSize={22} className="!overflow-visible">
+              <InconsistenciesPanel
+                items={items}
+                filter={filter}
+                activeId={activeId}
+                onFilterChange={setFilter}
+                onSelect={onSelect}
+                onResolve={onResolve}
+                onIgnore={onIgnore}
+                onResolveAll={onResolveAll}
+              />
+            </Panel>
+          </Group>
+        ) : page === 'overview' ? (
+          <OverviewPage items={items} />
+        ) : page === 'agents' ? (
+          <AgentsPage />
+        ) : page === 'rulebook' ? (
+          <RulebookPage rulebook={mockComparison.rulebook} items={items} />
+        ) : (
+          <AlertsPage
+            items={items}
+            activeId={activeId}
+            onSelect={onSelectFromAlerts}
+            onResolve={onResolve}
+            onIgnore={onIgnore}
+          />
+        )}
       </div>
     </div>
   )

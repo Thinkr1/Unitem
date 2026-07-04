@@ -13,41 +13,46 @@ import type { Inconsistency } from '../types'
 // be seen spatially.  Hard-coded to the login screen, exactly like mockData.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Daily Goals schematic preview — token values differ per platform so drift
+// is visible spatially. iOS schematic buttons are lightly interactive.
+
 const SEVERITY_RING: Record<string, string> = {
   error: '#f87171',
   warning: '#fbbf24',
   info: '#60a5fa',
 }
 
-type ElementKey = 'button' | 'heading' | 'emailInput' | 'passwordInput' | 'logo'
+type ElementKey = 'heading' | 'progressBar' | 'counter' | 'workoutButton'
 
 const ELEMENT_MAP: Record<string, ElementKey> = {
-  'inc-001': 'button',
-  'inc-002': 'button',
-  'inc-003': 'button',
+  'inc-001': 'workoutButton',
+  'inc-002': 'workoutButton',
+  'inc-003': 'workoutButton',
   'inc-004': 'heading',
-  'inc-005': 'emailInput',
-  'inc-006': 'button',
-  'inc-007': 'button',
+  'inc-005': 'progressBar',
+  'inc-006': 'workoutButton',
+  'inc-007': 'workoutButton',
 }
 
 const PLATFORM_VALUES = {
   ios: {
     headingSize: 30,
+    progressHeight: 10,
+    progress: 0.38,
     buttonColor: '#5A55F2',
     buttonRadius: 14,
     buttonPaddingV: 20,
-    buttonLabel: 'Sign In',
-    inputHeight: 52,
+    buttonLabel: 'Complete workout',
     device: 'iPhone 15 Pro',
   },
   android: {
     headingSize: 26,
+    progressHeight: 8,
+    progress: 0.38,
     buttonColor: '#4F46E5',
     buttonRadius: 8,
     buttonPaddingV: 12,
-    buttonLabel: 'Log in',
-    inputHeight: 48,
+    buttonLabel: 'Start workout',
     device: 'Pixel 7',
   },
 }
@@ -72,6 +77,8 @@ export default function LoginPreview({
   inconsistencies,
 }: LoginPreviewProps) {
   const v = PLATFORM_VALUES[platform]
+  const [waterGlasses, setWaterGlasses] = useState(3)
+  const [workoutDone, setWorkoutDone] = useState(false)
 
   const activeElement =
     activeInconsistency?.status === 'open'
@@ -96,33 +103,14 @@ export default function LoginPreview({
     return {}
   }
 
-  // ── The rendered login screen (shared between both device frames) ──────────
+  // ── Daily Goals screen (shared between both device frames) ────────────────
   const screen = (
     <div
-      className="flex flex-1 flex-col items-stretch overflow-hidden px-6 pb-6 pt-3"
+      className="flex flex-1 flex-col items-stretch justify-center overflow-hidden px-6 pb-6 pt-3"
       style={{ background: '#ffffff' }}
     >
-      {/* Logo */}
-      <div className="mb-5 mt-3 flex justify-center" style={highlight('logo')}>
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 15,
-            background: 'linear-gradient(135deg, #4F46E5 0%, #818CF8 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-            <path d="M8 20L14 8L20 20H8Z" fill="white" fillOpacity={0.9} />
-          </svg>
-        </div>
-      </div>
-
       {/* Heading */}
-      <div className="mb-5 text-center" style={highlight('heading')}>
+      <div className="mb-4 text-center" style={highlight('heading')}>
         <p
           style={{
             fontSize: v.headingSize * 0.72,
@@ -133,7 +121,7 @@ export default function LoginPreview({
             margin: 0,
           }}
         >
-          Welcome back
+          Daily Goals
         </p>
         {activeElement === 'heading' && activeInconsistency && (
           <InconsistencyPill
@@ -145,22 +133,26 @@ export default function LoginPreview({
         )}
       </div>
 
-      {/* Email input */}
-      <div className="mb-2" style={highlight('emailInput')}>
+      {/* Progress bar */}
+      <div className="mb-5" style={highlight('progressBar')}>
         <div
           style={{
-            height: v.inputHeight * 0.68,
-            borderRadius: 8,
-            border: '1.5px solid #e2e2e8',
-            background: '#fafafa',
-            display: 'flex',
-            alignItems: 'center',
-            paddingLeft: 12,
+            height: v.progressHeight * 0.85,
+            borderRadius: 6,
+            background: '#e8e8ef',
+            overflow: 'hidden',
           }}
         >
-          <span style={{ fontSize: 12, color: '#9899b8' }}>Email</span>
+          <div
+            style={{
+              width: `${v.progress * 100}%`,
+              height: '100%',
+              background: '#4F46E5',
+              borderRadius: 6,
+            }}
+          />
         </div>
-        {activeElement === 'emailInput' && activeInconsistency && (
+        {activeElement === 'progressBar' && activeInconsistency && (
           <InconsistencyPill
             expected={activeInconsistency.expected}
             actual={activeInconsistency[platform].value}
@@ -170,34 +162,63 @@ export default function LoginPreview({
         )}
       </div>
 
-      {/* Password input */}
-      <div className="mb-5" style={highlight('passwordInput')}>
-        <div
+      {/* Water counter */}
+      <div
+        className="mb-5 flex items-center justify-center gap-3"
+        style={highlight('counter')}
+      >
+        <span style={{ fontSize: 13, color: '#1A1B4B', fontWeight: 500 }}>
+          Water: {waterGlasses}/8
+        </span>
+        <button
+          type="button"
+          onClick={() => setWaterGlasses((n) => Math.max(0, n - 1))}
           style={{
-            height: v.inputHeight * 0.68,
+            width: 32,
+            height: 32,
             borderRadius: 8,
             border: '1.5px solid #e2e2e8',
             background: '#fafafa',
-            display: 'flex',
-            alignItems: 'center',
-            paddingLeft: 12,
+            fontSize: 16,
+            fontWeight: 600,
+            color: '#1A1B4B',
+            cursor: 'pointer',
           }}
         >
-          <span style={{ fontSize: 12, color: '#9899b8' }}>Password</span>
-        </div>
+          −
+        </button>
+        <button
+          type="button"
+          onClick={() => setWaterGlasses((n) => Math.min(8, n + 1))}
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            border: '1.5px solid #e2e2e8',
+            background: '#fafafa',
+            fontSize: 16,
+            fontWeight: 600,
+            color: '#1A1B4B',
+            cursor: 'pointer',
+          }}
+        >
+          +
+        </button>
       </div>
 
-      {/* Primary button */}
-      <div style={highlight('button')}>
-        <div
+      {/* Workout button */}
+      <div style={highlight('workoutButton')}>
+        <button
+          type="button"
+          onClick={() => setWorkoutDone((d) => !d)}
           style={{
+            width: '100%',
             background: v.buttonColor,
             borderRadius: v.buttonRadius * 0.72,
             paddingTop: v.buttonPaddingV * 0.5,
             paddingBottom: v.buttonPaddingV * 0.5,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            border: 'none',
+            cursor: 'pointer',
           }}
         >
           <span
@@ -206,13 +227,12 @@ export default function LoginPreview({
               fontWeight: 600,
               color: '#ffffff',
               fontFamily: 'Space Grotesk, sans-serif',
-              letterSpacing: '0.01em',
             }}
           >
-            {v.buttonLabel}
+            {workoutDone ? 'Workout complete' : v.buttonLabel}
           </span>
-        </div>
-        {activeElement === 'button' && activeInconsistency && (
+        </button>
+        {activeElement === 'workoutButton' && activeInconsistency && (
           <InconsistencyPill
             expected={activeInconsistency.expected}
             actual={activeInconsistency[platform].value}
@@ -222,7 +242,7 @@ export default function LoginPreview({
         )}
       </div>
 
-      {/* Ambient markers for non-active open inconsistencies */}
+      {/* Ambient markers */}
       {activeElement === null && ambientElements.size > 0 && (
         <div className="mt-4 flex items-center justify-center gap-1.5">
           {Array.from(ambientElements.entries()).map(([el, color]) => (
@@ -241,11 +261,6 @@ export default function LoginPreview({
           ))}
         </div>
       )}
-
-      {/* Forgot password */}
-      <div className="mt-3 text-center">
-        <span style={{ fontSize: 11, color: '#8A8BB3' }}>Forgot password?</span>
-      </div>
     </div>
   )
 
