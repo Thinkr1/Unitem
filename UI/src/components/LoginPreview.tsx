@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { Inconsistency } from '../types'
 
@@ -221,27 +222,22 @@ export default function LoginPreview({
         )}
       </div>
 
-      {/* Ambient badges for non-active open inconsistencies */}
+      {/* Ambient markers for non-active open inconsistencies */}
       {activeElement === null && ambientElements.size > 0 && (
-        <div className="mt-4 flex flex-wrap justify-center gap-1">
+        <div className="mt-4 flex items-center justify-center gap-1.5">
           {Array.from(ambientElements.entries()).map(([el, color]) => (
             <span
               key={el}
+              title={el}
               style={{
-                fontSize: 9,
-                fontWeight: 600,
-                color,
-                background: `${color}18`,
-                border: `1px solid ${color}44`,
-                borderRadius: 4,
-                padding: '1px 5px',
-                fontFamily: 'JetBrains Mono, monospace',
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: color,
+                boxShadow: `0 0 0 3px ${color}22`,
+                display: 'inline-block',
               }}
-            >
-              {el}
-            </span>
+            />
           ))}
         </div>
       )}
@@ -307,7 +303,7 @@ function IPhoneFrame({ children }: { children: ReactNode }) {
   )
 }
 
-function PixelFrame({ children }: { children: ReactNode }) {
+export function PixelFrame({ children }: { children: ReactNode }) {
   return (
     <div
       className="relative flex flex-col overflow-hidden"
@@ -348,6 +344,57 @@ function PixelFrame({ children }: { children: ReactNode }) {
   )
 }
 
+// ── Scale-to-fit ────────────────────────────────────────────────────────────
+// Scales a fixed-size child up/down to fill its container while preserving
+// aspect ratio, so the phone occupies the whole canvas instead of floating in
+// dead space. Keeps all internal proportions crisp via a single transform.
+export function ScaleToFit({
+  width,
+  height,
+  children,
+}: {
+  width: number
+  height: number
+  children: ReactNode
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const measure = () => {
+      const { width: cw, height: ch } = el.getBoundingClientRect()
+      if (cw > 0 && ch > 0) {
+        setScale(Math.min(cw / width, ch / height))
+      }
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [width, height])
+
+  return (
+    <div
+      ref={ref}
+      className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-2"
+    >
+      <div
+        style={{
+          width,
+          height,
+          transform: `scale(${scale})`,
+          transformOrigin: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // ── IDE canvas chrome ──────────────────────────────────────────────────────────
 
 function XcodeCanvas({ device, children }: { device: string; children: ReactNode }) {
@@ -372,9 +419,9 @@ function XcodeCanvas({ device, children }: { device: string; children: ReactNode
       </div>
 
       {/* Canvas surface */}
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-5">
+      <ScaleToFit width={252} height={500}>
         {children}
-      </div>
+      </ScaleToFit>
 
       {/* Bottom preview control bar */}
       <div
@@ -398,7 +445,7 @@ function XcodeCanvas({ device, children }: { device: string; children: ReactNode
   )
 }
 
-function StudioCanvas({ device, children }: { device: string; children: ReactNode }) {
+export function StudioCanvas({ device, children }: { device: string; children: ReactNode }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ background: '#3c3f41' }}>
       {/* Design surface toolbar */}
@@ -425,9 +472,9 @@ function StudioCanvas({ device, children }: { device: string; children: ReactNod
       </div>
 
       {/* Design surface */}
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-5">
+      <ScaleToFit width={252} height={500}>
         {children}
-      </div>
+      </ScaleToFit>
 
       {/* Bottom zoom controls */}
       <div

@@ -16,7 +16,7 @@ export default function SeverityBadge({
 }) {
   return (
     <span
-      className={`inline-flex items-center rounded border px-1.5 py-px font-mono text-[10px] font-medium uppercase tracking-wider ${
+      className={`inline-flex items-center rounded-full border px-2 py-px font-mono text-[10px] font-medium uppercase tracking-wider ${
         muted ? 'border-edge bg-transparent text-ink-faint' : STYLES[severity]
       }`}
     >

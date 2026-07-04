@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CodePanel as CodePanelData, Inconsistency, Severity } from '../types'
 import { highlightLine } from '../lib/highlight'
 import LoginPreview from './LoginPreview'
+import FlutterPreview from './FlutterPreview'
 
 export interface LinePulse {
   line: number
@@ -48,8 +49,8 @@ export default function ScreenPanel({
   // visual view handles its own highlight so we don't force a tab switch.
 
   return (
-    <section className="flex h-full min-w-0 flex-col bg-surface">
-      <header className="flex h-11 shrink-0 items-center justify-between border-b border-edge px-5">
+    <section className="flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-edge bg-surface">
+      <header className="flex h-12 shrink-0 items-center justify-between px-4">
         <div className="flex min-w-0 items-baseline gap-2">
           <h2 className="font-heading text-[13px] font-semibold tracking-wide text-ink">
             {title}
@@ -59,13 +60,13 @@ export default function ScreenPanel({
           </span>
         </div>
 
-        {/* View toggle — small pill pair */}
-        <div className="ml-3 flex shrink-0 rounded-md border border-edge p-0.5">
+        {/* View toggle — segmented lime pill */}
+        <div className="ml-3 flex shrink-0 rounded-full bg-surface-deep p-0.5">
           <button
             onClick={() => setView('visual')}
-            className={`rounded px-2 py-0.5 font-heading text-[10px] font-medium transition-colors ${
+            className={`rounded-full px-3 py-1 font-heading text-[10.5px] font-semibold transition-colors ${
               view === 'visual'
-                ? 'bg-surface-raised text-ink'
+                ? 'bg-accent text-accent-contrast'
                 : 'text-ink-faint hover:text-ink-muted'
             }`}
           >
@@ -73,9 +74,9 @@ export default function ScreenPanel({
           </button>
           <button
             onClick={() => setView('code')}
-            className={`rounded px-2 py-0.5 font-heading text-[10px] font-medium transition-colors ${
+            className={`rounded-full px-3 py-1 font-heading text-[10.5px] font-semibold transition-colors ${
               view === 'code'
-                ? 'bg-surface-raised text-ink'
+                ? 'bg-accent text-accent-contrast'
                 : 'text-ink-faint hover:text-ink-muted'
             }`}
           >
@@ -85,11 +86,15 @@ export default function ScreenPanel({
       </header>
 
       {view === 'visual' ? (
-        <LoginPreview
-          platform={panel.platform}
-          activeInconsistency={activeInconsistency}
-          inconsistencies={inconsistencies}
-        />
+        panel.platform === 'android' ? (
+          <FlutterPreview code={panel.code} device="Pixel 7" />
+        ) : (
+          <LoginPreview
+            platform={panel.platform}
+            activeInconsistency={activeInconsistency}
+            inconsistencies={inconsistencies}
+          />
+        )
       ) : (
         <div className="min-h-0 flex-1 overflow-auto py-2">
           <div className="min-w-max font-mono text-[12px] leading-[1.7]">
