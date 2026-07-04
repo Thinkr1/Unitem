@@ -1,11 +1,12 @@
 ---
 name: generate-fix
-description: Generate line-by-line code fix for propagate or flag verdicts on the target platform.
+description: Generate line-by-line code fix for propagate or flag verdicts on the target platform, then open a PR.
 ---
 
-# Generate Fix
+# Generate Fix (RECONCILE)
 
-Only for verdicts **propagate** or **flag**. Skip for **hold**.
+For verdicts **propagate** (required) or **flag** (best-effort). Skip for **hold**
+(hold emits an explanation record only). Maps to ARCHITECTURE.md §4 step 4.
 
 ## Routing
 
@@ -14,28 +15,24 @@ Only for verdicts **propagate** or **flag**. Skip for **hold**.
 | ios | `ios-patcher` |
 | android | `android-patcher` |
 
-## Input
-
-Accepted ticket with `verdict` and `change` metadata.
-
 ## Output
 
-Update ticket `proposed_fix`:
+Update the ticket's `proposed_fix`:
 
 ```json
 {
-  "target_platform": "android",
-  "file": "sample-android/Color.kt",
-  "diff": "- val Primary = Color(0xFF2563EB)\n+ val Primary = Color(0xFF1D4ED8)"
+  "target_platform": "ios",
+  "file": "sample-ios/LoginView.swift",
+  "diff": "- .background(Color(hex: \"#5A55F2\"))\n+ .background(Color(hex: \"#4F46E5\"))"
 }
 ```
 
 ## Apply + PR
 
-1. Apply patch to working tree.
-2. Commit: `sync(propagate): update primary color on Android (ticket_001)`
-3. Push branch `sync/propagate-ticket_001`.
-4. Open PR via GitHub or cloud agent `autoCreatePR`.
+1. Apply patch to working tree (mapped files only).
+2. Commit: `sync(propagate): update primary color on iOS (UNI-001)`
+3. Push branch `sync/propagate-UNI-001`.
+4. Open PR (GitHub or cloud agent `autoCreatePR`); include ticket JSON in the body.
 
 ## Verify
 

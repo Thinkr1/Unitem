@@ -1,15 +1,14 @@
 {
   "snapshot": "POPULATED_FROM_SETTINGS",
-  "install": "cd engine && pip3 install -r requirements.txt && cd ../dashboard && npm install",
-  "start": "cd engine && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000",
+  "install": "cd UI && npm install",
   "terminals": [
     {
-      "name": "engine",
-      "command": "cd engine && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+      "name": "ui",
+      "command": "cd UI && npm run dev"
     },
     {
-      "name": "dashboard",
-      "command": "cd dashboard && npm run dev"
+      "name": "engine",
+      "command": "echo 'Engine not built yet — see ARCHITECTURE.md §10. When ready: cd engine && pip3 install -e . && python3 -m unitem.api  # FastAPI on :8787'"
     }
   ]
 }

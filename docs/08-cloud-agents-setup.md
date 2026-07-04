@@ -1,6 +1,8 @@
 # Cloud Agents & Cursor Automations Setup
 
-This repo includes all **in-repo** Cursor agent configuration. Complete these **dashboard steps** once to activate cloud agents, Bugbot, and security automations.
+This repo includes all **in-repo** Cursor agent configuration for **Unitem**.
+`ARCHITECTURE.md` is the authoritative spec. This file covers the one-time
+**dashboard steps** to activate cloud agents, Bugbot, and security automations.
 
 ## What is already in this repo
 
@@ -8,19 +10,21 @@ This repo includes all **in-repo** Cursor agent configuration. Complete these **
 |------|---------|
 | `.cursor/agents/` | orchestrator, classifier, ios-patcher, android-patcher, verifier, security-reviewer |
 | `.cursor/skills/` | detect-diff, classify-change, generate-fix, run-pipeline |
-| `.cursor/rules/` | design-diplomat, swift-ios, kotlin-android |
+| `.cursor/rules/` | unitem (core), swift-ios, kotlin-android |
 | `.cursor/BUGBOT.md` | PR review rules |
 | `.cursor/environment.json` | Cloud VM install/start commands |
-| `engine/` | Detect + classify API |
-| `dashboard/` | Verdict console UI |
+| `.cursor/cloud-agent-prompts.md` | copy-paste prompts for cursor.com/agents |
+
+> The **engine** (`/engine` unitem package) and **sample apps** are built by the
+> architecture owner per `ARCHITECTURE.md` §10. The `/UI` review console already
+> exists. This config wraps that work — it does not duplicate it.
 
 ---
 
 ## Step 1 — Connect GitHub (required)
 
 1. Open [cursor.com/dashboard](https://cursor.com/dashboard)
-2. **Integrations → GitHub** → install app on **Thinkr1/Unitem**
-3. Grant access to the repo
+2. **Integrations → GitHub** → install the app on **Thinkr1/Unitem**
 
 ---
 
@@ -28,121 +32,76 @@ This repo includes all **in-repo** Cursor agent configuration. Complete these **
 
 1. Go to [cursor.com/dashboard/cloud-agents](https://cursor.com/dashboard/cloud-agents)
 2. **New environment** → link repo `Thinkr1/Unitem`
-3. Cursor reads `.cursor/environment.json` automatically
+3. Cursor reads `.cursor/environment.json` automatically (installs the `/UI` app;
+   engine command is a placeholder until `/engine` lands).
 4. **Secrets** (add in dashboard):
-   - `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` (for classifier LLM calls)
+   - `ANTHROPIC_API_KEY` (Claude runner fallback) — the `cursor` runner is the default
    - `GITHUB_TOKEN` (if PR creation needs elevated scope)
-
-### Multi-repo (when sample apps split to separate repos)
-
-Add both repos to one environment:
-- `Thinkr1/Unitem` (monorepo today)
-- Later: `Thinkr1/unitem-ios` + `Thinkr1/unitem-android`
 
 ---
 
 ## Step 3 — Enable Bugbot (REVIEW stage)
 
-1. [cursor.com/dashboard/bugbot](https://cursor.com/dashboard) → enable for `Thinkr1/Unitem`
-2. Settings:
-   - Run on: **every push** to PR branches
-   - Include draft PRs: **yes** (for hackathon iteration)
+1. Dashboard → Bugbot → enable for `Thinkr1/Unitem`
+2. Run on: **every push** to PR branches; include draft PRs (hackathon iteration)
 3. Bugbot reads `.cursor/BUGBOT.md` automatically
 
-**Local pre-push (optional):**
-```
-/review-bugbot
-```
+Local pre-push: `/review-bugbot`
 
 ---
 
 ## Step 4 — Security automations (SECURE stage)
 
 1. [cursor.com/dashboard/automations](https://cursor.com/dashboard/automations)
-2. **New automation:**
-   - **Trigger:** Pull request opened or updated
-   - **Action:** Security Reviewer
-   - **Repos:** `Thinkr1/Unitem`
+2. **New automation:** Trigger = PR opened/updated · Action = Security Reviewer · Repo = `Thinkr1/Unitem`
 3. Optional cron: Vulnerability Scanner weekly on `main`
 
-**Local pre-push:**
-```
-/review-security
-```
+Local pre-push: `/review-security`
 
 ---
 
 ## Step 5 — Pipeline automation (SCALE stage)
 
-Create an automation for the propagate demo:
-
 | Field | Value |
 |-------|-------|
-| Name | Design Diplomat Sync |
+| Name | Unitem Sync |
 | Trigger | Push to branch matching `sync/*` OR manual |
-| Prompt | See below |
-
-**Automation prompt (copy-paste):**
-
-```
-Run the Design Diplomat pipeline for the Settings screen.
-
-1. Read engine/screen-map.json and knowledge-base/conventions.yaml
-2. Invoke orchestrator subagent
-3. Detect atomic changes from git diff on sample-ios/ or sample-android/
-4. Classify each change (classifier subagent)
-5. For propagate/flag verdicts, apply patch via android-patcher or ios-patcher
-6. Invoke verifier subagent
-7. Open PR with ticket JSON in description
-8. Do not edit files outside screen-map.json
-
-Branch: sync/propagate-* or sync/flag-*
-```
+| Prompt | See `.cursor/cloud-agent-prompts.md` (full pipeline) |
 
 ---
 
-## Step 6 — Run your first cloud agent manually
+## Step 6 — Run your first cloud agent
 
-1. Open [cursor.com/agents](https://cursor.com/agents)
-2. **New agent** → select environment `Unitem`
-3. Paste:
-
-```
-/run-pipeline
-
-Run Design Diplomat token pipeline for Settings screen.
-Call POST /api/pipeline after starting engine, or run:
-cd engine && pip install -r requirements.txt && python -m engine.detect --screen Settings
-
-Classify results with classifier subagent.
-For propagate verdict on brand.primary color, generate Android patch and open PR.
-```
-
-4. Enable **Auto-create PR**
+1. Open [cursor.com/agents](https://cursor.com/agents) → **New agent** → environment `Unitem`
+2. Paste the full-pipeline prompt from `.cursor/cloud-agent-prompts.md`
+3. Enable **Auto-create PR**
 
 ---
 
-## Step 7 — Local dev (BUILD stage)
+## Step 7 — Local dev
 
 ```bash
-# Terminal 1 — engine
-cd engine && pip3 install -r requirements.txt && python3 -m uvicorn main:app --reload --port 8000
+# UI review console (already built)
+cd UI && npm install && npm run dev
 
-# Terminal 2 — dashboard
-cd dashboard && npm install && npm run dev
+# Engine (once /engine exists — ARCHITECTURE.md §10)
+cd engine && pip3 install -e . && python3 -m unitem.api   # FastAPI on :8787
 ```
 
-Open http://localhost:3000 → **Run pipeline**
+The `/UI` app talks to the engine per `ARCHITECTURE.md` §7:
+`GET /comparison?screen=login`, `POST /findings/{id}/accept`, `POST /findings/{id}/override`.
 
 ---
 
-## Step 8 — iOS (Mac teammate)
+## Step 8 — iOS builds (Mac only)
 
-Cloud agents on Linux **cannot** run Xcode. iOS builds stay on Mac:
+Linux cloud VMs **cannot** run Xcode. iOS builds stay on Mac:
 
-- **Option A:** Mac teammate runs simulator + uploads screenshots to `dashboard/public/screenshots/ios/`
-- **Option B:** [My Machines](https://cursor.com/docs/cloud-agent/setup.md) self-hosted Mac pool (if available on your plan)
-- **Option C:** Xcode MCP on local Mac (`xcrun mcpbridge`)
+- **Option A:** Mac teammate runs the simulator + uploads screenshots
+- **Option B:** [My Machines](https://cursor.com/docs/cloud-agent/setup.md) self-hosted Mac pool
+- **Option C:** Xcode MCP on the local Mac (`xcrun mcpbridge`)
+
+Android patching + PR creation run fully in the cloud.
 
 ---
 
@@ -150,14 +109,12 @@ Cloud agents on Linux **cannot** run Xcode. iOS builds stay on Mac:
 
 | Invoke | When |
 |--------|------|
-| `/orchestrator` | Full end-to-end pipeline |
-| `/classifier` | Single atomic change verdict |
-| `/android-patcher` | Apply Kotlin fix after propagate |
-| `/ios-patcher` | Apply Swift fix after propagate |
+| `/orchestrator` | Full end-to-end pipeline (audit or diff) |
+| `/classifier` | Single change → propagate/hold/flag verdict |
+| `/android-patcher` / `/ios-patcher` | Apply the counterpart fix |
 | `/verifier` | Build + screenshot check |
-| `/review-bugbot` | Pre-push review |
-| `/review-security` | Pre-push security |
-| `/in-cloud` | Hand current task to cloud agent |
+| `/review-bugbot` / `/review-security` | Pre-push review |
+| `/in-cloud` | Hand the current task to a cloud agent |
 
 ---
 
@@ -165,8 +122,7 @@ Cloud agents on Linux **cannot** run Xcode. iOS builds stay on Mac:
 
 | Issue | Fix |
 |-------|-----|
-| Cloud agent can't find engine | Check `.cursor/environment.json` install command |
-| Bugbot not commenting | Confirm GitHub app installed on repo |
-| Dashboard API error | Start engine on port 8000 |
-| iOS build fails in cloud | Expected — use Mac for iOS |
-| Move to Cloud loses edits | Commit and push before handoff |
+| Bugbot not commenting | Confirm the GitHub app is installed on the repo |
+| Move to Cloud loses edits | Commit and push before handoff (cloud sees git state only) |
+| iOS build fails in cloud | Expected — use a Mac for iOS |
+| Engine endpoints 404 | Engine not built yet — see `ARCHITECTURE.md` §10 |

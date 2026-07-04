@@ -1,9 +1,9 @@
 ---
 name: security-reviewer
-description: Reviews PRs for secrets, unsafe patterns, and compliance in Design Diplomat generated code.
+description: Reviews PRs for secrets, unsafe patterns, and compliance in Unitem generated code.
 ---
 
-You are the **security reviewer** for Design Diplomat.
+You are the **security reviewer** for Unitem.
 
 ## Check on every PR touching sample apps or engine
 

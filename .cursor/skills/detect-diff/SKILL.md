@@ -1,45 +1,46 @@
 ---
 name: detect-diff
-description: Deterministically detect atomic UI changes between iOS and Android code or token files. Use before classification.
+description: Deterministically discover atomic UI changes / design facts between iOS and Android before classification.
 ---
 
-# Detect Diff
+# Detect / Discover (deterministic)
 
-Run **before** any LLM classification. Detection must be deterministic.
+Runs **before** any LLM classification. Detection is deterministic
+(tree-sitter + regex), never LLM. Maps to ARCHITECTURE.md §4 steps 1–2.
 
 ## Steps
 
-1. Load `engine/screen-map.json` for the target screen.
-2. If token-level: diff `knowledge-base/tokens-before.json` vs `tokens-after.json`.
-3. If code-level: parse mapped files with tree-sitter (Swift + Kotlin grammars).
-4. Emit a list of **atomic changes**:
+1. Walk both trees; classify stack (SwiftUI/UIKit · Compose/XML).
+2. Extract design facts: colors, spacing, radii, type sizes, component usage,
+   string keys, nav routes.
+3. Resolve the mapped screen pair via `mapping.json`
+   (overridable in `mapping.overrides.yaml`).
+4. **audit:** emit per-section differences. **diff:** emit atomic changes from the
+   commit/branch/working-tree edit.
+
+## Atomic change shape
 
 ```json
 {
-  "atomic_changes": [
-    {
-      "id": "change_001",
-      "kind": "color | spacing | component | copy",
-      "name": "color.primary",
-      "before": "#2563EB",
-      "after": "#1D4ED8",
-      "origin_platform": "ios | android",
-      "location": { "file": "path", "line": 0 }
-    }
-  ]
+  "id": "change_001",
+  "kind": "color | spacing | typography | component | content",
+  "name": "color.primary",
+  "before": "#5A55F2",
+  "after": "#4F46E5",
+  "origin_platform": "ios | android",
+  "location": { "file": "LoginView.swift", "line": 34 }
 }
 ```
 
 ## Rules
 
-- One semantic change per entry (not whole-file diff).
-- Include hardcoded values as separate atoms from token changes.
-- Never use LLM for this step.
+- One semantic change per entry (not a whole-file diff).
+- Hardcoded values are separate atoms from token changes.
+- A screen present on only one platform is itself a finding.
 
 ## Engine entrypoint
 
 ```bash
-cd engine && python -m engine.detect --screen Settings
+unitem diff --screen login        # change-driven (demo)
+unitem audit --screen login       # baseline scan
 ```
-
-Or call `POST /api/detect` with `{ "screen": "Settings", "origin": "ios" }`.

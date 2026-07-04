@@ -1,52 +1,62 @@
 # Cloud Agent Prompts — copy-paste into cursor.com/agents
 
-## Full pipeline (propagate demo)
+`ARCHITECTURE.md` is authoritative. The `/UI` app is the review console (built).
+The engine (`/engine` unitem package) serves it via FastAPI on port 8787.
+
+## Full pipeline (propagate demo — Login screen)
 
 ```
-Run the Design Diplomat pipeline for the Settings screen.
+Run the Unitem `diff` pipeline for the Login screen.
 
 Read:
-- engine/screen-map.json
-- knowledge-base/conventions.yaml
-- docs/03-architecture.md
+- mapping.json
+- conventions/conventions.yaml
+- ARCHITECTURE.md (§4 pipeline, §7 tickets.json schema)
 
 Steps:
-1. Start engine: cd engine && pip3 install -r requirements.txt && python3 -m uvicorn main:app --port 8000 &
-2. POST /api/pipeline with {"screen":"Settings","mode":"token"}
-3. For each ticket, invoke classifier subagent to validate verdict
-4. For propagate verdicts on brand.color.primary, invoke android-patcher
-5. Apply patch to sample-android/app/src/main/java/com/unitem/settings/Color.kt
-6. Invoke verifier subagent
-7. Commit on branch sync/propagate-ticket_002
-8. Open PR with ticket JSON in description
+1. Discover atomic changes from the latest git diff on sample-ios/ (deterministic)
+2. Resolve the mapped iOS<->Android pair via mapping.json
+3. For each change, invoke the classifier subagent (propagate | hold | flag)
+4. For propagate verdicts on brand color, invoke android-patcher
+5. Apply the minimal Kotlin diff, invoke verifier
+6. Commit on branch sync/propagate-UNI-001 and open a PR
+7. Emit tickets.json for the /UI console (GET /comparison?screen=login)
 
-Do not edit files outside screen-map.json. Enable auto-create PR.
+Do not edit files outside the mapped Login pair. Enable auto-create PR.
+```
+
+## Audit mode (baseline scan)
+
+```
+Run `unitem audit` on the Login screen.
+Map both platforms, judge each mapped-section difference (hold/flag only,
+nothing to propagate). Aggregate deduplicated findings into tickets.json.
 ```
 
 ## Classify only
 
 ```
-Invoke classifier subagent for this atomic change:
+Invoke the classifier subagent for this atomic change:
 
 {
   "kind": "component",
   "name": "toggle.notifications",
   "before": "custom-switch",
-  "after": "native-uiswitch",
+  "after": "native-toggle",
   "origin_platform": "ios"
 }
 
-Ground in knowledge-base/conventions.yaml. Return JSON verdict.
+Ground in conventions/conventions.yaml. Return the tickets.json verdict entry.
 ```
 
 ## Android patch after iOS edit
 
 ```
-iOS primary color changed in sample-ios/Theme.swift from #2563EB to #1D4ED8.
+iOS primary color changed in sample-ios/LoginView.swift from #5A55F2 to #4F46E5.
 
-Invoke orchestrator → classifier → android-patcher.
-Generate minimal Kotlin diff for sample-android/.../Color.kt.
-Open PR on branch sync/propagate-primary-color.
+Invoke orchestrator -> classifier -> android-patcher.
+Generate the minimal Kotlin diff for the mapped LoginScreen.kt.
+Open a PR on branch sync/propagate-UNI-001.
 ```
 
 ## Pre-push review
