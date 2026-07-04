@@ -231,10 +231,11 @@ def _agent_fix_succeeded(ticket: Ticket, cfg: Config) -> bool:
 def apply_fix_with_agent(ticket: Ticket, cfg: Config) -> list[Path]:
     """Dispatch a cursor-agent into the repo to apply the fix; verify its work
     deterministically and fall back to the mechanical transform on failure."""
-    from .runner.cursor import _find_binary
+    from .runner.cursor import _find_binary, _log_spawn
 
     try:
         binary = _find_binary()
+        _log_spawn(f"fixer:{ticket.id}")
         subprocess.run(
             [binary, "-p", _fix_instruction(ticket, cfg), "--output-format", "json", "--trust"],
             cwd=cfg.root,

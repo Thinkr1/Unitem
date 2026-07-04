@@ -1,0 +1,23 @@
+- generic [ref=f45e3]:
+  - banner [ref=f45e4]:
+    - img [ref=f45e6]
+    - generic [ref=f45e8]:
+      - heading "New comparison" [level=1] [ref=f45e9]
+      - paragraph [ref=f45e10]: Paste your iOS and Android screens to reconcile them
+  - generic [ref=f45e11]:
+    - generic [ref=f45e12]:
+      - generic [ref=f45e13]:
+        - generic [ref=f45e14]:
+          - generic [ref=f45e15]: iOS · Swift
+          - generic [ref=f45e16]: DailyGoalsView.swift
+        - textbox "Paste your SwiftUI source here…" [ref=f45e17]: "import SwiftUI struct DailyGoalsView: View { @State private var waterGlasses = 3 @State private var workoutDone = false @State private var progress: Double = 0.38 var body: some View { VStack(spacing: 24) { Text(\"Daily Goals\") .font(.custom(\"SpaceGrotesk-Bold\", size: 30)) .foregroundColor(Color(hex: \"#1A1B4B\")) ProgressView(value: progress) .frame(height: 10) .tint(Color(hex: \"#4F46E5\")) HStack(spacing: 16) { Text(\"Water: \\(waterGlasses)/8\") .font(.system(size: 15)) Button(\"-\") { if waterGlasses > 0 { waterGlasses -= 1 } } .frame(width: 44, height: 44) Button(\"+\") { if waterGlasses < 8 { waterGlasses += 1 } } .frame(width: 44, height: 44) } Button(action: { workoutDone.toggle() }) { Text(workoutDone ? \"Workout complete\" : \"Complete workout\") .font(.system(size: 17, weight: .semibold)) .frame(maxWidth: .infinity) .padding(.vertical, 20) .background(Color(hex: \"#5A55F2\")) .foregroundColor(.white) .cornerRadius(14) } .animation(.easeInOut(duration: 0.30), value: workoutDone) } .padding(.horizontal, 24) } }"
+      - generic [ref=f45e18]:
+        - generic [ref=f45e19]:
+          - generic [ref=f45e20]: Android · Dart
+          - generic [ref=f45e21]: daily_goals_screen.dart
+        - textbox "Paste your Flutter source here…" [ref=f45e22]: "import 'package:flutter/material.dart'; class DailyGoalsScreen extends StatefulWidget { const DailyGoalsScreen({super.key}); @override State<DailyGoalsScreen> createState() => _DailyGoalsScreenState(); } class _DailyGoalsScreenState extends State<DailyGoalsScreen> { int _waterGlasses = 3; bool _workoutDone = false; double _progress = 0.38; @override Widget build(BuildContext context) { return Scaffold( body: Padding( padding: const EdgeInsets.symmetric(horizontal: 24), child: Column( mainAxisAlignment: MainAxisAlignment.center, children: [ const Text( 'Daily Goals', style: TextStyle( fontFamily: 'SpaceGrotesk', fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF1A1B4B), ), ), const SizedBox(height: 24), LinearProgressIndicator( value: _progress, minHeight: 8, color: const Color(0xFF4F46E5), ), const SizedBox(height: 24), Row( mainAxisAlignment: MainAxisAlignment.center, children: [ Text('Water: $_waterGlasses/8'), IconButton( onPressed: () => setState(() { if (_waterGlasses > 0) _waterGlasses--; }), icon: const Icon(Icons.remove), ), IconButton( onPressed: () => setState(() { if (_waterGlasses < 8) _waterGlasses++; }), icon: const Icon(Icons.add), ), ], ), const SizedBox(height: 24), ElevatedButton( style: ElevatedButton.styleFrom( backgroundColor: const Color(0xFF4F46E5), padding: const EdgeInsets.symmetric(vertical: 12), animationDuration: const Duration(milliseconds: 150), shape: RoundedRectangleBorder( borderRadius: BorderRadius.circular(8), ), ), onPressed: () => setState(() => _workoutDone = !_workoutDone), child: Text( _workoutDone ? 'Workout complete' : 'Start workout', style: const TextStyle(fontSize: 15), ), ), ], ), ), ); } }"
+    - generic [ref=f45e23]:
+      - paragraph [ref=f45e24]: The Android side renders live via DartPad. iOS shows a schematic preview.
+      - button "Analyze" [ref=f45e25]:
+        - text: Analyze
+        - img [ref=f45e26]
