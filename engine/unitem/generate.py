@@ -235,9 +235,13 @@ def apply_fix_with_agent(ticket: Ticket, cfg: Config) -> list[Path]:
 
     try:
         binary = _find_binary()
-        _log_spawn(f"fixer:{ticket.id}")
+        model = cfg.runner.model
+        _log_spawn(f"fixer:{ticket.id}", model)
+        cmd = [binary, "-p", _fix_instruction(ticket, cfg), "--output-format", "json", "--trust"]
+        if model and model != "auto":
+            cmd += ["--model", model]
         subprocess.run(
-            [binary, "-p", _fix_instruction(ticket, cfg), "--output-format", "json", "--trust"],
+            cmd,
             cwd=cfg.root,
             capture_output=True,
             text=True,

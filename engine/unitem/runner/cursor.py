@@ -34,12 +34,14 @@ _spawn_counter = 0
 _spawn_lock = __import__("threading").Lock()
 
 
-def _log_spawn(key: str | None) -> int:
+def _log_spawn(key: str | None, model: str = "auto") -> int:
     global _spawn_counter
     with _spawn_lock:
         _spawn_counter += 1
         n = _spawn_counter
-    print(f"[cursor-agent] spawn #{n} (judge/fix key={key or 'adhoc'})", flush=True)
+    print(
+        f"[cursor-agent] spawn #{n} (key={key or 'adhoc'}, model={model})", flush=True
+    )
     return n
 
 
@@ -52,7 +54,7 @@ class CursorRunner(Runner):
         self.timeout_s = timeout_s
 
     def complete(self, prompt: str, *, key: str | None = None, timeout_s: int = 120) -> str:
-        n = _log_spawn(key)
+        n = _log_spawn(key, self.model)
         # --trust: headless runs must not stop at the workspace-trust prompt
         cmd = [self.binary, "-p", prompt, "--output-format", "json", "--trust"]
         if self.model and self.model != "auto":

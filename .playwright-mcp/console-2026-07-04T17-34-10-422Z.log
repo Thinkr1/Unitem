@@ -2,3 +2,7 @@
 [  221457ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8787/progress:0
 [  222057ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8787/progress:0
 [  222657ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8787/progress:0
+[  620738ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8787/progress:0
+[  621338ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8787/progress:0
+[  621937ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8787/progress:0
+[  622537ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8787/progress:0

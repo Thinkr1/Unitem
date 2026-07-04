@@ -11,7 +11,7 @@ screen: login
 
 runner:
   name: cursor      # mock | cursor  (cursor = live agents via subscription; mock = fixture replay, offline)
-  model: auto
+  model: claude-opus-4-8-xhigh   # every judge/fixer agent runs Opus 4.8 Extra High
   concurrency: 4
   timeout_s: 120
 
