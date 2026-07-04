@@ -4,8 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'theme.dart';
 
 // System font (SF Pro) used by the native iOS-style elements: the primary
-// 'Sign In' CTA and the 'Forgot password?' text link. The brand heading uses
-// Space Grotesk instead.
+// 'Sign In' CTA, the 'Remember me' label and the 'Forgot password?' text link.
+// The brand heading uses Space Grotesk instead.
 const String kSystemFont = 'SF Pro';
 
 class LoginScreen extends StatefulWidget {
@@ -21,11 +21,12 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _rememberMe = false;
 
   // Rounded bordered filled field (iOS .roundedBorder equivalent): visible
-  // hairline border + rounded corners + white fill — never an underline.
+  // hairline gray border + small ~5pt rounded corners + white fill — never an
+  // underline. System-default 17pt text.
   InputDecoration _fieldDecoration(String hint) {
     const border = OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(8)),
-      borderSide: BorderSide(color: Color(0xFFD1D1DB), width: 1),
+      borderRadius: BorderRadius.all(Radius.circular(AppTheme.radiusField)),
+      borderSide: BorderSide(color: AppTheme.fieldBorder, width: 1),
     );
     return InputDecoration(
       hintText: hint,
@@ -77,6 +78,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _email,
                         keyboardType: TextInputType.emailAddress,
                         textCapitalization: TextCapitalization.none,
+                        style: const TextStyle(
+                          fontFamily: kSystemFont,
+                          fontSize: AppTheme.bodySize,
+                        ),
                         decoration: _fieldDecoration('Email'),
                       ),
                     ),
@@ -86,13 +91,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: TextField(
                         controller: _password,
                         obscureText: true,
+                        style: const TextStyle(
+                          fontFamily: kSystemFont,
+                          fontSize: AppTheme.bodySize,
+                        ),
                         decoration: _fieldDecoration('Password'),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 24),
-                // Labeled platform switch — label left, switch right.
+                // Labeled platform switch — leading label, switch trailing,
+                // spanning full width.
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -101,11 +111,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(
                         fontFamily: kSystemFont,
                         color: AppTheme.brandInk,
-                        fontSize: 15,
+                        fontSize: AppTheme.bodySize,
                       ),
                     ),
-                    Switch(
+                    Switch.adaptive(
                       value: _rememberMe,
+                      activeColor: AppTheme.brandPrimary,
                       onChanged: (v) => setState(() => _rememberMe = v),
                     ),
                   ],
@@ -129,6 +140,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: _signIn,
                     child: const Text(
                       'Sign In',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         fontFamily: kSystemFont,
                         fontSize: AppTheme.bodySize,
@@ -147,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       'Forgot password?',
                       style: TextStyle(
                         fontFamily: kSystemFont,
-                        fontSize: 13,
+                        fontSize: AppTheme.linkSize,
                         fontWeight: FontWeight.normal,
                         color: AppTheme.textSecondary,
                       ),
