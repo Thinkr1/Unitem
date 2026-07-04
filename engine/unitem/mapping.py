@@ -25,14 +25,22 @@ def normalize_stem(file: str) -> str:
 
 
 def _screen_files(facts: list[DesignFact]) -> dict[str, list[DesignFact]]:
-    """Files containing at least one component are screens (vs token files)."""
+    """Screen files carry UI, not just design constants.
+
+    A file is a screen if it defines at least one component OR renders any UI
+    copy (Text/Button labels). Keying off components alone was too brittle: an
+    agent-regenerated screen (e.g. after a transfer) may use widgets outside the
+    extractor's component list (TextFormField, FilledButton, …) and would then
+    be silently dropped from the mapping. Theme/token files have neither
+    components nor copy, so they stay excluded.
+    """
     by_file: dict[str, list[DesignFact]] = defaultdict(list)
     for fact in facts:
         by_file[fact.file].append(fact)
     return {
         file: file_facts
         for file, file_facts in by_file.items()
-        if any(f.kind == "component" for f in file_facts)
+        if any(f.kind in ("component", "copy") for f in file_facts)
     }
 
 
