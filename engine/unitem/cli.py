@@ -68,6 +68,12 @@ def cmd_diff(args: argparse.Namespace) -> int:
     tickets = judge_all(changes, ctx, runner, concurrency=cfg.runner.concurrency)
     tickets = sort_tickets(dedupe(tickets))
 
+    from .generate import generate_fix  # eager preview so the UI shows diffs pre-accept
+
+    for ticket in tickets:
+        if ticket.verdict in ("propagate", "flag") and ticket.proposed_fix is None:
+            ticket.proposed_fix = generate_fix(ticket, cfg)
+
     out_path = cfg.out_dir / "tickets.json"
     previous = load_tickets(out_path)
     tickets = assign_ids(tickets, previous)
