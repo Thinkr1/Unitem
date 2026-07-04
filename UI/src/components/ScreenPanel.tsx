@@ -3,6 +3,7 @@ import type { CodePanel as CodePanelData, Inconsistency, Severity } from '../typ
 import { highlightLine } from '../lib/highlight'
 import LoginPreview from './LoginPreview'
 import FlutterPreview from './FlutterPreview'
+import SimulatorPreview from './SimulatorPreview'
 
 export interface LinePulse {
   line: number
@@ -34,7 +35,7 @@ export default function ScreenPanel({
   activeInconsistency,
   inconsistencies,
 }: ScreenPanelProps) {
-  const [view, setView] = useState<'visual' | 'code'>('visual')
+  const [view, setView] = useState<'visual' | 'simulator' | 'code'>('visual')
   const lines = useMemo(() => panel.code.split('\n'), [panel.code])
   const lineRefs = useRef(new Map<number, HTMLDivElement>())
 
@@ -73,6 +74,16 @@ export default function ScreenPanel({
             Visual
           </button>
           <button
+            onClick={() => setView('simulator')}
+            className={`rounded-full px-3 py-1 font-heading text-[10.5px] font-semibold transition-colors ${
+              view === 'simulator'
+                ? 'bg-accent text-accent-contrast'
+                : 'text-ink-faint hover:text-ink-muted'
+            }`}
+          >
+            Simulator
+          </button>
+          <button
             onClick={() => setView('code')}
             className={`rounded-full px-3 py-1 font-heading text-[10.5px] font-semibold transition-colors ${
               view === 'code'
@@ -95,6 +106,8 @@ export default function ScreenPanel({
             inconsistencies={inconsistencies}
           />
         )
+      ) : view === 'simulator' ? (
+        <SimulatorPreview platform={panel.platform} />
       ) : (
         <div className="min-h-0 flex-1 overflow-auto py-2">
           <div className="min-w-max font-mono text-[12px] leading-[1.7]">
