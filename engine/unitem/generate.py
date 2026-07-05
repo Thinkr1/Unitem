@@ -111,9 +111,45 @@ def _transform_substitution(ticket: Ticket, cfg: Config) -> list[Path]:
     return [path]
 
 
+def _transform_revert_token(ticket: Ticket, cfg: Config) -> list[Path]:
+    """A generated theme file's token *value* itself drifted from the rulebook
+    (e.g. Android's theme.dart hardcodes the old brand color) — write the
+    expected value back into that same literal, on the origin platform only.
+    Unlike `_transform_substitution`, there's no token reference to point at:
+    this file *is* the token definition."""
+    change = ticket.change
+    if not ticket.expected:
+        raise ValueError("revert-token fix needs an expected value")
+    hex_match = re.search(r"#[0-9A-Fa-f]{6}", ticket.expected)
+    if not hex_match:
+        raise ValueError(f"expected value {ticket.expected!r} has no hex color to revert to")
+    new_hex = hex_match.group(0).lstrip("#").upper()
+
+    old_match = re.search(r"#[0-9A-Fa-f]{6}", change.after or "")
+    old_hex = (old_match.group(0) if old_match else change.after or "").lstrip("#").upper()
+    if not old_hex:
+        raise ValueError(f"current value {change.after!r} has no hex color to replace")
+
+    path = cfg.root / change.location.file
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    idx = change.location.line - 1
+    suffix = path.suffix
+    if suffix == ".swift":
+        old_literal, new_literal = f'"#{old_hex}"', f'"#{new_hex}"'
+    else:  # .dart / .kt — Color(0xFF......)
+        old_literal, new_literal = f"0xFF{old_hex}", f"0xFF{new_hex}"
+    if old_literal not in lines[idx]:
+        raise ValueError(f"literal {old_literal} not found at {path}:{change.location.line}")
+    lines[idx] = lines[idx].replace(old_literal, new_literal)
+    path.write_text("".join(lines), encoding="utf-8")
+    return [path]
+
+
 def _transform(ticket: Ticket, cfg: Config) -> list[Path]:
     if ticket.verdict == "propagate" and ticket.change.kind == "token":
         return _transform_token(ticket, cfg)
+    if ticket.verdict == "flag" and ticket.change.kind == "token" and ticket.expected:
+        return _transform_revert_token(ticket, cfg)
     if ticket.expected:
         return _transform_substitution(ticket, cfg)
     raise ValueError(f"no fix strategy for {ticket.id} ({ticket.verdict}/{ticket.change.kind})")

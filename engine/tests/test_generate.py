@@ -72,3 +72,52 @@ def test_generate_fix_ignores_non_utf8_files_in_platform_roots(tmp_path):
     assert "Theme.brandPrimary" in fix.diff
     # generate_fix() only previews — the source file must be restored.
     assert login_view.read_text(encoding="utf-8") == original_source
+
+
+def test_generate_fix_reverts_a_drifted_token_definition(tmp_path):
+    """verdict=flag on a kind="token" change (e.g. Android's generated
+    theme.dart hardcodes a stale brand color) must revert that literal to the
+    rulebook's expected value — not fall through to the substitution
+    strategy, which has no token reference to point at here."""
+    android_root = tmp_path / "sample-flutter"
+    android_root.mkdir(parents=True)
+    theme_file = android_root / "lib" / "theme.dart"
+    theme_file.parent.mkdir(parents=True)
+    original_source = (
+        "class AppTheme {\n"
+        "  static const Color brandPrimary = Color(0xFF4F46E5);\n"
+        "}\n"
+    )
+    theme_file.write_text(original_source, encoding="utf-8")
+
+    cfg = _cfg(tmp_path, tmp_path / "sample-ios", android_root)
+
+    change = AtomicChange(
+        kind="token",
+        category="color",
+        name="color.brandPrimary",
+        after="#4F46E5",
+        origin_platform="android",
+        location=Location(file=str(theme_file.relative_to(tmp_path)), line=2),
+    )
+    ticket = Ticket(
+        id="UNI-003",
+        mode="diff",
+        category="color",
+        change=change,
+        verdict="flag",
+        severity="high",
+        confidence=0.95,
+        reason="Android drifted from the shared brand color; iOS already matches spec.",
+        convention_refs=["flag/stale-token"],
+        expected="#E11D48",
+    )
+
+    fix = generate_fix(ticket, cfg)
+
+    assert fix is not None
+    assert fix.target_platform == "android"
+    assert "0xFFE11D48" in fix.diff
+    assert "0xFF4F46E5" not in fix.diff.splitlines()[-1]  # old value only on the removed line
+    # generate_fix() only previews — the source file must be restored.
+    assert theme_file.read_text(encoding="utf-8") == original_source
