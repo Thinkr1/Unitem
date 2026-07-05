@@ -48,7 +48,7 @@ interface PanelProps {
   onResolve: (id: string) => void
   onIgnore: (id: string) => void
   onResolveAll: () => void
-  onResetDemo?: () => void
+  onRevertScreen?: () => void
   transferring?: boolean
 }
 
@@ -61,7 +61,7 @@ export default function InconsistenciesPanel({
   onResolve,
   onIgnore,
   onResolveAll,
-  onResetDemo,
+  onRevertScreen,
   transferring = false,
 }: PanelProps) {
   const [query, setQuery] = useState('')
@@ -116,12 +116,12 @@ export default function InconsistenciesPanel({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          {onResetDemo && (
+          {onRevertScreen && (
             <button
-              onClick={onResetDemo}
+              onClick={onRevertScreen}
               disabled={transferring}
-              title="Reset demo Android design"
-              aria-label="Reset demo Android design"
+              title="Revert this screen to its original code"
+              aria-label="Revert screen"
               className="glass-btn-quiet flex h-8 w-8 items-center justify-center rounded-lg disabled:opacity-40"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

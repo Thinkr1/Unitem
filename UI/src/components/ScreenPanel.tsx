@@ -24,6 +24,9 @@ interface ScreenPanelProps {
    *  the Electron native folder picker) they're also debounced-saved to disk. */
   editable?: boolean
   onCodeChange?: (code: string) => void
+  /** IDE workspace: default to code view, show filename, collapse preview tabs. */
+  ideMode?: boolean
+  defaultView?: 'visual' | 'simulator' | 'code'
 }
 
 const FLAG_CLASS: Record<Severity, string> = {
@@ -101,8 +104,12 @@ export default function ScreenPanel({
   inconsistencies: _inconsistencies,
   editable = false,
   onCodeChange,
+  ideMode = false,
+  defaultView,
 }: ScreenPanelProps) {
-  const [view, setView] = useState<'visual' | 'simulator' | 'code'>('visual')
+  const [view, setView] = useState<'visual' | 'simulator' | 'code'>(
+    defaultView ?? (ideMode ? 'code' : 'visual'),
+  )
   const lines = useMemo(() => panel.code.split('\n'), [panel.code])
   const lineRefs = useRef(new Map<number, HTMLDivElement>())
   const canEditOnDisk = !!panel.absolutePath && typeof window !== 'undefined' && !!window.fileEditor
@@ -131,7 +138,16 @@ export default function ScreenPanel({
     <section className="glass-card flex h-full min-w-0 flex-col overflow-hidden">
       <header className="flex h-[3rem] shrink-0 items-center justify-between border-b border-edge px-4">
         <div className="flex min-w-0 items-center gap-2">
-          <h2 className="font-heading text-[14px] font-bold text-ink">{title}</h2>
+          <span
+            className={`flex h-6 shrink-0 items-center justify-center rounded-md px-1.5 font-heading text-[9px] font-bold ${
+              panel.platform === 'ios'
+                ? 'bg-severity-warning/15 text-severity-warning'
+                : 'bg-info-blue/15 text-info-blue'
+            }`}
+          >
+            {title}
+          </span>
+          <h2 className="truncate font-mono text-[12px] font-semibold text-ink">{panel.fileName}</h2>
           <SaveIndicator state={saveState} />
         </div>
 
@@ -153,21 +169,25 @@ export default function ScreenPanel({
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
             </svg>
           </button>
-          <button
-            onClick={() => setView('visual')}
-            className={`rounded-lg border px-3 py-1.5 font-heading text-[11px] font-bold transition-all ${
-              view === 'visual'
-                ? 'border-[#8fa824] bg-accent text-accent-contrast shadow-sm'
-                : 'glass-btn-quiet border-transparent px-2.5'
-            }`}
-          >
-            Visual
-          </button>
+          {!ideMode && (
+            <button
+              onClick={() => setView('visual')}
+              className={`rounded-lg border px-3 py-1.5 font-heading text-[11px] font-bold transition-all ${
+                view === 'visual'
+                  ? 'border-[#8fa824] bg-accent text-accent-contrast shadow-sm'
+                  : 'glass-btn-quiet border-transparent px-2.5'
+              }`}
+            >
+              Visual
+            </button>
+          )}
           {(
-            [
-              ['simulator', 'Sim'],
-              ['code', 'Code'],
-            ] as const
+            ideMode
+              ? ([['code', 'Code']] as const)
+              : ([
+                  ['simulator', 'Sim'],
+                  ['code', 'Code'],
+                ] as const)
           ).map(([tab, label]) => (
             <button
               key={tab}
@@ -182,6 +202,19 @@ export default function ScreenPanel({
               {label}
             </button>
           ))}
+          {ideMode && (
+            <button
+              onClick={() => setView('visual')}
+              title="Visual preview"
+              className={`rounded-lg px-2 py-1.5 font-heading text-[10px] font-semibold transition-all ${
+                view === 'visual'
+                  ? 'border border-[#8fa824] bg-surface-raised text-ink'
+                  : 'glass-btn-quiet'
+              }`}
+            >
+              Preview
+            </button>
+          )}
         </div>
       </header>
 
@@ -230,14 +263,16 @@ export default function ScreenPanel({
       ) : view === 'simulator' ? (
         <SimulatorPreview platform={panel.platform} />
       ) : editable ? (
-        <textarea
-          value={panel.code}
-          onChange={(e) => handleCodeChange(e.target.value)}
-          spellCheck={false}
-          autoCapitalize="off"
-          autoCorrect="off"
-          className="min-h-0 flex-1 resize-none overflow-auto bg-transparent px-4 py-2 font-mono text-[12px] leading-[1.7] text-code caret-accent outline-none"
-        />
+        <div className="relative min-h-0 flex-1 overflow-auto">
+          <textarea
+            value={panel.code}
+            onChange={(e) => handleCodeChange(e.target.value)}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            className="absolute inset-0 resize-none overflow-auto bg-transparent px-4 py-2 font-mono text-[12px] leading-[1.7] text-code caret-accent outline-none"
+          />
+        </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto py-2">
           <div className="min-w-max font-mono text-[12px] leading-[1.7]">

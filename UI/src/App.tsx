@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import type { AppScreen, CodebaseApp, Inconsistency, Severity } from './types'
 import { mockComparison } from './mockData'
@@ -18,7 +18,9 @@ import InconsistenciesPanel, {
 } from './components/InconsistenciesPanel'
 import AppShell from './components/AppShell'
 import { type NavPage } from './components/NavRail'
-import PipelineStrip from './components/PipelineStrip'
+import AgentProgressStrip from './components/AgentProgressStrip'
+import { useEngineProgress } from './hooks/useEngineProgress'
+import { useReanalyzeOnEdit } from './hooks/useReanalyzeOnEdit'
 import PasteScreen from './components/PasteScreen'
 import LaunchScreen from './components/LaunchScreen'
 import FileBrowser from './components/FileBrowser'
@@ -86,6 +88,12 @@ export default function App() {
   const [loadedApp, setLoadedApp] = useState<CodebaseApp | null>(null)
   const [activeScreenId, setActiveScreenId] = useState<string | null>(null)
   const [screenItems, setScreenItems] = useState<Record<string, Inconsistency[]>>({})
+  /** Per-screen edited source — survives screen switches without resetting. */
+  const [screenEdits, setScreenEdits] = useState<
+    Record<string, { ios: string; android: string }>
+  >({})
+  const skipReanalyzeRef = useRef(false)
+  const engineProgress = useEngineProgress()
 
   const [items, setItems] = useState<Inconsistency[]>(
     mockComparison.inconsistencies,
@@ -107,11 +115,17 @@ export default function App() {
   }
 
   /** Swap the comparison panels to one screen of a loaded whole-app codebase. */
-  const applyScreen = (screen: AppScreen, screenInconsistencies: Inconsistency[]) => {
+  const applyScreen = (
+    screen: AppScreen,
+    screenInconsistencies: Inconsistency[],
+    edits?: { ios: string; android: string },
+  ) => {
+    const ios = edits?.ios ?? screen.ios.code
+    const android = edits?.android ?? screen.android.code
     setIosPanelMeta(screen.ios)
     setAndroidPanelMeta(screen.android)
-    setIosCode(screen.ios.code)
-    setAndroidCode(screen.android.code)
+    setIosCode(ios)
+    setAndroidCode(android)
     setAndroidPreview(undefined)
     setItems(screenInconsistencies)
     setScreenName(screen.id)
@@ -121,12 +135,21 @@ export default function App() {
     setAndroidPulse(null)
   }
 
+  const persistCurrentScreenEdits = useCallback(() => {
+    if (!activeScreenId) return
+    setScreenEdits((prev) => ({
+      ...prev,
+      [activeScreenId]: { ios: iosCode, android: androidCode },
+    }))
+  }, [activeScreenId, iosCode, androidCode])
+
   // Launch screen -> load a whole codebase (a bundled demo, or one scanned
   // from the user's own iOS + Android folders) and jump straight to it.
   const onSelectApp = (app: CodebaseApp) => {
     const initialItems = Object.fromEntries(app.screens.map((s) => [s.id, s.inconsistencies]))
     setLoadedApp(app)
     setScreenItems(initialItems)
+    setScreenEdits({})
     setRulebook(app.rulebook)
     setTransferMsg(null)
     applyScreen(app.screens[0], initialItems[app.screens[0].id] ?? [])
@@ -139,8 +162,17 @@ export default function App() {
     if (!loadedApp) return
     const screen = loadedApp.screens.find((s) => s.id === screenId)
     if (!screen) return
+    persistCurrentScreenEdits()
     setTransferMsg(null)
-    applyScreen(screen, screenItems[screenId] ?? screen.inconsistencies)
+    skipReanalyzeRef.current = true
+    applyScreen(
+      screen,
+      screenItems[screenId] ?? screen.inconsistencies,
+      screenEdits[screenId],
+    )
+    window.setTimeout(() => {
+      skipReanalyzeRef.current = false
+    }, 50)
   }
 
   const refreshFromEngine = async () => {
@@ -193,6 +225,55 @@ export default function App() {
   const syncScreenItems = (next: Inconsistency[]) => {
     if (loadedApp && activeScreenId) {
       setScreenItems((prev) => ({ ...prev, [activeScreenId]: next }))
+    }
+  }
+
+  const handleReanalyzeResults = useCallback(
+    (next: Inconsistency[], source: 'engine' | 'local') => {
+      setItems(next)
+      syncScreenItems(next)
+      if (source === 'local') {
+        setTransferMsg({
+          kind: 'success',
+          text: 'Re-analyzed — consistency fixes updated. Android code unchanged until you apply a fix.',
+        })
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [loadedApp, activeScreenId],
+  )
+
+  const { localProgress, scheduleReanalyze } = useReanalyzeOnEdit({
+    rulebook,
+    iosFileName: iosPanelMeta.fileName,
+    androidFileName: androidPanelMeta.fileName,
+    screenId: activeScreenId ?? screenName,
+    onResults: handleReanalyzeResults,
+  })
+
+  const onIosCodeChange = (code: string) => {
+    setIosCode(code)
+    if (activeScreenId) {
+      setScreenEdits((prev) => ({
+        ...prev,
+        [activeScreenId]: { ios: code, android: prev[activeScreenId]?.android ?? androidCode },
+      }))
+    }
+    if (!skipReanalyzeRef.current) {
+      scheduleReanalyze(code, androidCode, items)
+    }
+  }
+
+  const onAndroidCodeChange = (code: string) => {
+    setAndroidCode(code)
+    if (activeScreenId) {
+      setScreenEdits((prev) => ({
+        ...prev,
+        [activeScreenId]: { ios: prev[activeScreenId]?.ios ?? iosCode, android: code },
+      }))
+    }
+    if (!skipReanalyzeRef.current) {
+      scheduleReanalyze(iosCode, code, items)
     }
   }
 
@@ -327,17 +408,24 @@ export default function App() {
     }
   }
 
-  // "Reset demo": for a loaded app, undoes local resolve/transfer edits by
-  // restoring the current screen to its original definition. For an
-  // engine-backed screen, puts the old Material design back on disk so the
-  // transfer can be re-run (unchanged, engine-only feature).
-  const onResetDemo = async () => {
+  // "Revert screen": restores the current screen to its original bundled
+  // definition — only when the user explicitly asks; edits never auto-reset.
+  const onRevertScreen = async () => {
     if (loadedApp) {
       const original = loadedApp.screens.find((s) => s.id === activeScreenId)
       if (!original) return
       setTransferMsg(null)
+      skipReanalyzeRef.current = true
+      setScreenEdits((prev) => {
+        const next = { ...prev }
+        delete next[original.id]
+        return next
+      })
       applyScreen(original, original.inconsistencies)
       setScreenItems((prev) => ({ ...prev, [original.id]: original.inconsistencies }))
+      window.setTimeout(() => {
+        skipReanalyzeRef.current = false
+      }, 50)
       return
     }
     const result = await resetAndroid(screenName)
@@ -388,6 +476,7 @@ export default function App() {
     : {}
 
   const showFileBrowser = !!loadedApp && loadedApp.screens.length > 1
+  const ideMode = page === 'comparison'
 
   const onGoToLaunch = () => setView('launch')
 
@@ -428,7 +517,7 @@ export default function App() {
     <AppShell
       page={page}
       onNavigate={setPage}
-      onEditCode={() => setView('paste')}
+      onEditCode={loadedApp ? undefined : () => setView('paste')}
       // Rescan re-runs the real engine pipeline — there's nothing to rescan
       // for a loaded (demo/custom) app with no engine behind it.
       onRescan={loadedApp ? undefined : onRescan}
@@ -458,7 +547,15 @@ export default function App() {
                 </button>
               </div>
             )}
-            <PipelineStrip />
+            <AgentProgressStrip
+              engineProgress={engineProgress}
+              localProgress={localProgress}
+              idleHint={
+                loadedApp
+                  ? 'Select a screen in the file tree · edit either file to re-analyze'
+                  : 'Edit either file to re-analyze · agents propose consistency fixes'
+              }
+            />
             <Group
               orientation="horizontal"
               className="min-h-0 flex-1 gap-0"
@@ -486,7 +583,9 @@ export default function App() {
                     panel={iosPanel}
                     title="iOS"
                     editable
-                    onCodeChange={setIosCode}
+                    ideMode={ideMode}
+                    defaultView="code"
+                    onCodeChange={onIosCodeChange}
                     rulebook={rulebook}
                     flaggedLines={flaggedLines(items, 'ios')}
                     activeLine={active?.ios.line ?? null}
@@ -500,11 +599,10 @@ export default function App() {
                   <ScreenPanel
                     panel={androidPanel}
                     title="Android"
-                    // Not editable in-app (keeps the highlighted read-only Code
-                    // view + line-linking), but still watches the file on disk —
-                    // pass onCodeChange so an external save (e.g. from VS Code)
-                    // still flows back into the app live. See "Open in editor".
-                    onCodeChange={setAndroidCode}
+                    editable
+                    ideMode={ideMode}
+                    defaultView="code"
+                    onCodeChange={onAndroidCodeChange}
                     rulebook={rulebook}
                     flaggedLines={flaggedLines(items, 'android')}
                     activeLine={active?.android.line ?? null}
@@ -526,7 +624,7 @@ export default function App() {
                 onResolve={onResolve}
                 onIgnore={onIgnore}
                 onResolveAll={onTransfer}
-                onResetDemo={onResetDemo}
+                onRevertScreen={onRevertScreen}
                 transferring={transferring}
               />
             </Panel>

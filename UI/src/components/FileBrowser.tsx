@@ -59,7 +59,10 @@ export default function FileBrowser({
         <span className="shrink-0 text-[15px]" aria-hidden>
           {appIcon}
         </span>
-        <h2 className="truncate font-heading text-[13px] font-bold text-ink">{appName}</h2>
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate font-heading text-[13px] font-bold text-ink">{appName}</h2>
+          <p className="truncate font-heading text-[10px] text-ink-faint">Screens</p>
+        </div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-1.5 py-2">

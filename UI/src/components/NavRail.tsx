@@ -14,7 +14,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   {
     id: 'comparison',
-    label: 'Compare',
+    label: 'Workspace',
     tier: 'primary',
     icon: (
       <>

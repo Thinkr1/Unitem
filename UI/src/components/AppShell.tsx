@@ -10,8 +10,8 @@ export const PAGE_COPY: Record<
     subtitle: 'Consistency score & summary',
   },
   comparison: {
-    title: 'Compare',
-    subtitle: 'iOS & Android side by side',
+    title: 'Workspace',
+    subtitle: 'iOS & Android files side by side',
   },
   agents: {
     title: 'Agents',
