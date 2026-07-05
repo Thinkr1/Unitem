@@ -102,6 +102,14 @@ class Store:
     def save(self) -> None:
         write_tickets(self.path, self.tickets)
 
+    def reload(self) -> None:
+        """Re-read out/tickets.json — picks up tickets written by a CLI `unitem diff`
+        while the server is already running."""
+        with self.lock:
+            self.tickets = load_tickets(self.path) or TicketFile(
+                run_id="empty", mode="diff", screen=self.cfg.screen, tickets=[]
+            )
+
     def find(self, ticket_id: str) -> Ticket:
         for ticket in self.tickets.tickets:
             if ticket.id == ticket_id:
@@ -323,6 +331,7 @@ def create_app(cfg: Config) -> FastAPI:
 
     @app.get("/comparison")
     def comparison(screen: str = "login") -> dict:
+        store.reload()
         return {
             "screen": screen,
             "ios": _panel(cfg, "ios", screen),
