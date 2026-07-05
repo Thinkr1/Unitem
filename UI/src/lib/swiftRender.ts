@@ -202,10 +202,13 @@ function parseArgs(argsSrc: string): SwiftArg[] {
 const CONTROL_KEYWORDS = new Set(['if', 'else', 'guard', 'switch', 'for', 'while', 'ForEach', 'Group'])
 
 class Parser {
-  constructor(
-    private src: string,
-    private lineStarts: number[],
-  ) {}
+  private src: string
+  private lineStarts: number[]
+
+  constructor(src: string, lineStarts: number[]) {
+    this.src = src
+    this.lineStarts = lineStarts
+  }
 
   private lineAt(index: number): number {
     let lo = 0
