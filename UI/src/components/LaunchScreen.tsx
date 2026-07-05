@@ -15,7 +15,6 @@ import ThemeToggle from './ThemeToggle'
 
 interface LaunchScreenProps {
   onSelectApp: (app: CodebaseApp) => void
-  onPasteInstead: () => void
   engineLive: boolean | null
 }
 
@@ -155,7 +154,7 @@ function DemoAppCard({ app, onSelect }: { app: CodebaseApp; onSelect: () => void
   )
 }
 
-export default function LaunchScreen({ onSelectApp, onPasteInstead, engineLive }: LaunchScreenProps) {
+export default function LaunchScreen({ onSelectApp, engineLive }: LaunchScreenProps) {
   const [iosPick, setIosPick] = useState<FolderPick | null>(null)
   const [androidPick, setAndroidPick] = useState<FolderPick | null>(null)
   const [reading, setReading] = useState<Side | null>(null)
@@ -333,16 +332,6 @@ export default function LaunchScreen({ onSelectApp, onPasteInstead, engineLive }
             </button>
           </div>
         </section>
-
-        <footer className="mt-8 flex justify-center">
-          <button
-            type="button"
-            onClick={onPasteInstead}
-            className="font-heading text-[12px] font-semibold text-ink-faint underline-offset-4 hover:text-ink-muted hover:underline"
-          >
-            Or paste a single screen's code instead →
-          </button>
-        </footer>
       </div>
     </div>
   )

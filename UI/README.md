@@ -36,13 +36,14 @@ The integration seam is deliberately small:
 
 ## Launch screen — whole-app analysis
 
-The app opens on a launch screen (`src/components/LaunchScreen.tsx`) instead of straight into the comparison view. From there you can:
+The app always opens on a launch screen (`src/components/LaunchScreen.tsx`) — there's no single-screen "paste and go" alternative competing with it. From there you can:
 
 - **Pick a bundled demo app** (`src/demoApps.ts`) — FitTrack (5 screens: Home, Daily Goals, Habits, Profile, Settings) or ShopEasy (3 screens: Product List, Cart, Checkout). Each is a small but real "whole app": screens share the same design tokens, so the same drift (e.g. a stale brand color) shows up on more than one screen, and the Home/Product List screens visually link out to the others.
 - **Point it at your own codebase** — pick an iOS folder and an Android folder (native folder pickers via `webkitdirectory`). Files are matched into screens by name (`LoginView.swift` ↔ `login_screen.dart`, see `src/lib/codebaseScan.ts`), filtering out non-screen files (themes, models…). Each matched pair is run through the existing `/analyze` engine call; if the engine is offline the screens still load so you can browse the code side by side.
-- **Or paste a single screen's code**, which is the original flow and still works exactly as before.
 
-Once a whole-app codebase is loaded, the Compare page shows a screen switcher tab strip above the panels, and Overview/Rulebook aggregate findings across every screen instead of just the one currently open — a "Codebases" button in the nav rail returns to the launch screen at any time.
+Once a whole-app codebase is loaded, the Compare page shows a file-tree sidebar (`src/components/FileBrowser.tsx`) — one folder per screen, each containing its iOS + Android source file — and Overview/Rulebook aggregate findings across every screen instead of just the one currently open. A "Codebases" button in the nav rail returns to the launch screen at any time. (You can still open a raw two-pane code editor for the *currently active* screen via "Edit code" in the nav rail — that's an in-context editing tool, not a separate entry point.)
+
+The Android "Visual" tab (`FlutterPreview`) is keyed on the file name, so switching screens always tears down and recreates the DartPad iframe from scratch instead of reposting into a possibly-stale one — the compiled output can never lag behind a *different* file's Code tab. Editing/rescanning the same file keeps the iframe warm as before.
 
 ## Layout
 
