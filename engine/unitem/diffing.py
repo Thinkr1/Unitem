@@ -240,6 +240,54 @@ def _cross_check(
     return changes
 
 
+# ── detector 4: token value mismatch between platform theme files ────────────
+
+
+def _token_pair_drift(
+    cfg: Config,
+    all_facts: dict[Platform, list[DesignFact]],
+    *,
+    skip_tokens: set[str] | None = None,
+) -> list[AtomicChange]:
+    """Surfaces standing drift when iOS and Android token definitions disagree,
+    even if git diff is empty (e.g. manual edits without a commit)."""
+    skip = {t.lower() for t in (skip_tokens or set())}
+    ios_defs = {
+        f.name.lower(): f
+        for f in all_facts["ios"]
+        if f.kind == "token_def" and f.name
+    }
+    android_defs = {
+        f.name.lower(): f
+        for f in all_facts["android"]
+        if f.kind == "token_def" and f.name
+    }
+    changes: list[AtomicChange] = []
+    for name in sorted(set(ios_defs) & set(android_defs)):
+        if name in skip:
+            continue
+        ios_f, android_f = ios_defs[name], android_defs[name]
+        if ios_f.value == android_f.value:
+            continue
+        category, group = _category_for_token(ios_f.name or name, ios_f.value)
+        ios_path = cfg.root / ios_f.file
+        ios_text = ios_path.read_text(encoding="utf-8") if ios_path.is_file() else ""
+        changes.append(
+            AtomicChange(
+                kind="token",
+                category=category,
+                name=f"{group}.{ios_f.name}",
+                before=android_f.value,
+                after=ios_f.value,
+                origin_platform="ios",
+                location=Location(file=ios_f.file, line=ios_f.line),
+                counterpart_location=Location(file=android_f.file, line=android_f.line),
+                snippet=_snippet(ios_text, ios_f.line),
+            )
+        )
+    return changes
+
+
 # ── entry point ──────────────────────────────────────────────────────────────
 
 
@@ -262,6 +310,7 @@ def detect_changes(cfg: Config, base_ref: str = "HEAD") -> list[AtomicChange]:
     ]
 
     changes: list[AtomicChange] = []
+    git_token_names: set[str] = set()
     for file in changed_files:
         platform = _platform_of(cfg, file)
         if platform is None:
@@ -275,9 +324,14 @@ def detect_changes(cfg: Config, base_ref: str = "HEAD") -> list[AtomicChange]:
         before = extract_text(before_text, file, platform)
         after = extract_text(after_text, file, platform)
         other: Platform = "android" if platform == "ios" else "ios"
-        changes.extend(
-            _token_deltas(cfg, file, platform, before, after, after_text, all_facts[other])
+        token_deltas = _token_deltas(
+            cfg, file, platform, before, after, after_text, all_facts[other]
         )
+        for delta in token_deltas:
+            _, _, token_name = delta.name.partition(".")
+            if token_name:
+                git_token_names.add(token_name.lower())
+        changes.extend(token_deltas)
         changes.extend(
             _style_deltas(
                 cfg, file, platform, before_text, after_text, after, mapping, all_facts
@@ -285,6 +339,7 @@ def detect_changes(cfg: Config, base_ref: str = "HEAD") -> list[AtomicChange]:
         )
 
     changes.extend(_cross_check(cfg, mapping, all_facts))
+    changes.extend(_token_pair_drift(cfg, all_facts, skip_tokens=git_token_names))
 
     seen: set[str] = set()
     unique = []

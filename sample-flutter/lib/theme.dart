@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-// Brand theme. Primary color is the brand rose #E11D48. All values derive from
+// Brand theme. Primary color is brand indigo #4F46E5. All values derive from
 // the login design spec's color/size tokens.
 
 class AppTheme {
   // Spec colors map — every token appears as a Color(0xFFRRGGBB) constant.
-  static const Color brandPrimary = Color(0xFFE11D48);
+  static const Color brandPrimary = Color(0xFF4F46E5);
   static const Color brandInk = Color(0xFF1A1B4B);
   static const Color textSecondary = Color(0xFF8A8BB3);
   static const Color surface = Color(0xFFFFFFFF);
