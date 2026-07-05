@@ -6,17 +6,17 @@ struct LoginView: View {
     @State private var rememberMe = false
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 12) {
             Image("logo")
                 .resizable()
-                .frame(width: 96, height: 96)
+                .frame(width: 48, height: 48)
 
             Text("Welcome back")
                 .font(.custom("SpaceGrotesk-Bold", size: Theme.headingSize))
                 .foregroundColor(Theme.brandInk)
 
             VStack(spacing: 12) {
-                TextField("Email", text: $email)
+                TextField("Emajaseelil", text: $email)
                     .textFieldStyle(.roundedBorder)
                     .frame(height: Theme.inputHeight)
                     .autocapitalization(.none)
@@ -30,16 +30,16 @@ struct LoginView: View {
                 .toggleStyle(.switch)
 
             Button(action: signIn) {
-                Text("Sign In")
+                Text("Sign hijaseelIn")
                     .font(.system(size: Theme.bodySize, weight: .semibold))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, 10)
                     .background(Theme.brandPrimary)
                     .foregroundColor(.white)
                     .cornerRadius(Theme.radiusButton)
             }
 
-            Button("Forgot password?") {}
+            Button("Forgot goodbye password?") {}
                 .font(.system(size: 13))
                 .foregroundColor(Theme.textSecondary)
         }

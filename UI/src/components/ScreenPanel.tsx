@@ -95,9 +95,17 @@ export default function ScreenPanel({
         </div>
       </header>
 
-      {view === 'visual' ? (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {panel.platform === 'android' ? (
+      {/* Android's live preview stays MOUNTED across tab switches — hidden with
+          CSS rather than unmounted — so the DartPad iframe never cold-reloads.
+          Switching to Code/Simulator and back is now instant. */}
+      {panel.platform === 'android' && (
+        <div
+          className={
+            view === 'visual'
+              ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
+              : 'hidden'
+          }
+        >
           <FlutterPreview
             // Prefer the engine's previewCode — theme already inlined, assets
             // already swapped (robustly) and compile-checked. Falls back to the
@@ -107,15 +115,22 @@ export default function ScreenPanel({
             rulebook={rulebook}
             themeCode={panel.themeCode}
           />
-        ) : (
-          <SwiftPreview
-            code={panel.code}
-            themeCode={panel.themeCode}
-            rulebook={rulebook}
-            activeInconsistency={activeInconsistency}
-          />
-        )}
         </div>
+      )}
+
+      {view === 'visual' ? (
+        // Android's visual is the always-mounted FlutterPreview above; only the
+        // iOS visual renders inline here.
+        panel.platform === 'android' ? null : (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <SwiftPreview
+              code={panel.code}
+              themeCode={panel.themeCode}
+              rulebook={rulebook}
+              activeInconsistency={activeInconsistency}
+            />
+          </div>
+        )
       ) : view === 'simulator' ? (
         <SimulatorPreview platform={panel.platform} />
       ) : editable ? (

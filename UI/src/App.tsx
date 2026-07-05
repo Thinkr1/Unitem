@@ -63,7 +63,6 @@ export default function App() {
   const [iosCode, setIosCode] = useState(mockComparison.ios.code)
   const [androidCode, setAndroidCode] = useState(mockComparison.android.code)
   const [androidPreview, setAndroidPreview] = useState<string | undefined>()
-  const [rescanNonce, setRescanNonce] = useState(0)
   const [rescanning, setRescanning] = useState(false)
   const [transferring, setTransferring] = useState(false)
   // Transfer outcome shown as a dismissible banner — a transfer can fail with a
@@ -135,7 +134,8 @@ export default function App() {
     setEngineLive(result !== null)
     if (result) applyComparison(result)
     setRescanning(false)
-    setRescanNonce((n) => n + 1) // remount the preview so it recompiles
+    // No manual remount: applyComparison updates the preview code, which the
+    // (mounted) DartPad iframe reposts + recompiles in place. See FlutterPreview.
   }
 
   const onResolve = async (id: string) => {
@@ -146,7 +146,6 @@ export default function App() {
       ),
     )
     await refreshFromEngine()
-    setRescanNonce((n) => n + 1)
   }
 
   const onIgnore = async (id: string) => {
@@ -203,7 +202,8 @@ export default function App() {
       applyComparison(result)
     } finally {
       setTransferring(false)
-      setRescanNonce((n) => n + 1) // remount DartPad so it compiles the new screen
+      // No manual remount: applyComparison swaps in the new preview code, which
+      // the (mounted) DartPad iframe reposts + recompiles in place.
     }
   }
 
@@ -212,7 +212,6 @@ export default function App() {
     const result = await resetAndroid(screenName)
     setEngineLive(result !== null)
     if (result) applyComparison(result)
-    setRescanNonce((n) => n + 1)
   }
 
   const onSelect = (item: Inconsistency) => {
@@ -319,7 +318,6 @@ export default function App() {
                 <ResizeHandle />
                 <Panel defaultSize="50%" minSize="25%" className="!overflow-visible">
                   <ScreenPanel
-                    key={`android-${rescanNonce}`}
                     panel={androidPanel}
                     title="Android"
                     rulebook={rulebook}

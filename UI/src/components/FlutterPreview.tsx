@@ -6,8 +6,10 @@ import { DEVICE_H, DEVICE_W, DeviceCanvas, PixelFrame } from './PhoneChrome'
 // FlutterPreview renders the Dart *for real* by embedding DartPad and
 // injecting the source over postMessage. DartPad compiles Flutter to web and
 // runs it inside the iframe, so this is a true render (network required).
-// This is the Android "Visual" tab: after a transfer/fix lands, the panel
-// remounts and DartPad recompiles the actual on-disk screen.
+// This is the Android "Visual" tab. The iframe stays MOUNTED across tab
+// switches (hidden, not torn down) so DartPad never cold-reloads; after a
+// transfer/fix lands the changed source is reposted and DartPad recompiles in
+// place (no reload).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DARTPAD_ORIGIN = 'https://dartpad.dev'
@@ -26,6 +28,10 @@ interface FlutterPreviewProps {
 export default function FlutterPreview({ code, rulebook = {}, themeCode }: FlutterPreviewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const loadedRef = useRef(false)
+  // Last wrapped source we posted to DartPad — lets the effect distinguish a
+  // genuine source change (transfer/rescan → re-show the overlay) from a
+  // StrictMode / no-op re-run, now that the panel stays mounted across tabs.
+  const lastSourceRef = useRef<string | null>(null)
   const [status, setStatus] = useState<Status>('loading')
 
   useEffect(() => {
@@ -33,6 +39,19 @@ export default function FlutterPreview({ code, rulebook = {}, themeCode }: Flutt
     if (!iframe) return
 
     const wrapped = wrapDartForPreview(code, rulebook, themeCode)
+
+    // If the source genuinely changed after the iframe was already showing
+    // something (a transfer/rescan landed), re-show the "Compiling…" overlay so
+    // the still-visible previous render isn't mistaken for the new one while
+    // DartPad recompiles. We deliberately do NOT early-return on an unchanged
+    // source: React StrictMode double-invokes this effect on mount (run →
+    // cleanup → run), and bailing on the second run would leave the overlay-
+    // clearing listener/timers below unregistered — pinning "Compiling…" forever
+    // even though DartPad rendered underneath.
+    if (lastSourceRef.current !== null && wrapped !== lastSourceRef.current) {
+      setStatus('loading')
+    }
+    lastSourceRef.current = wrapped
 
     const post = () => {
       iframe.contentWindow?.postMessage(
@@ -49,16 +68,24 @@ export default function FlutterPreview({ code, rulebook = {}, themeCode }: Flutt
     }
     window.addEventListener('message', onMessage)
 
-    // Fallback: keep posting for a while in case the ready signal is missed.
-    let tries = 0
-    const retry = window.setInterval(() => {
-      if (tries >= 14) {
-        window.clearInterval(retry)
-        return
-      }
-      tries += 1
-      if (loadedRef.current) post()
-    }, 700)
+    // Warm iframe (a tab switch kept it alive, or a repost after a transfer):
+    // DartPad is ready, so ONE post recompiles in place. Cold iframe (first
+    // load): early posts are dropped, so keep retrying until it loads. (Verified:
+    // posting new source into a live DartPad iframe re-runs it — no reload.)
+    let retry: number | undefined
+    if (loadedRef.current) {
+      post()
+    } else {
+      let tries = 0
+      retry = window.setInterval(() => {
+        if (tries >= 14) {
+          window.clearInterval(retry)
+          return
+        }
+        tries += 1
+        if (loadedRef.current) post()
+      }, 700)
+    }
 
     // Optimistically clear the overlay shortly after the frame loads (we can't
     // observe the cross-origin compile finishing directly).
@@ -73,7 +100,7 @@ export default function FlutterPreview({ code, rulebook = {}, themeCode }: Flutt
 
     return () => {
       window.removeEventListener('message', onMessage)
-      window.clearInterval(retry)
+      if (retry !== undefined) window.clearInterval(retry)
       window.clearTimeout(reveal)
       window.clearTimeout(failsafe)
     }
