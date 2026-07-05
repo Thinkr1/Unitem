@@ -4,10 +4,13 @@ import { DEMO_APPS } from '../demoApps'
 import type { AppScreen, CodebaseApp } from '../types'
 import { analyzePair } from '../lib/api'
 import {
+  folderNameFromPath,
   guessFolderName,
+  hasNativeFileAccess,
   humanizeKey,
   matchScreens,
   readFolderFiles,
+  readFolderNative,
   type ScannedFile,
 } from '../lib/codebaseScan'
 import UnitemLogo from './UnitemLogo'
@@ -38,14 +41,18 @@ function FolderPicker({
   hint,
   pick,
   disabled,
-  onPick,
+  native,
+  onPickBrowser,
+  onPickNative,
   onClear,
 }: {
   label: string
   hint: string
   pick: FolderPick | null
   disabled: boolean
-  onPick: (files: FileList | null) => void
+  native: boolean
+  onPickBrowser: (files: FileList | null) => void
+  onPickNative: () => void
   onClear: () => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -64,12 +71,14 @@ function FolderPicker({
         </span>
       </div>
 
+      {/* Browser-only fallback picker — unused (but kept mounted) when `native`,
+          since the Electron dialog goes through onPickNative instead. */}
       <input
         type="file"
         multiple
         hidden
         onChange={(e: ChangeEvent<HTMLInputElement>) => {
-          onPick(e.target.files)
+          onPickBrowser(e.target.files)
           e.target.value = ''
         }}
         ref={(el) => {
@@ -106,13 +115,19 @@ function FolderPicker({
         <button
           type="button"
           disabled={disabled}
-          onClick={() => inputRef.current?.click()}
+          onClick={() => (native ? onPickNative() : inputRef.current?.click())}
           className="glass-inset flex flex-col items-center justify-center gap-2 border-dashed px-3 py-6 text-ink-faint transition-colors hover:border-edge-bright hover:text-ink-muted disabled:opacity-50"
         >
           <FolderIcon />
           <span className="font-heading text-[12px] font-semibold">Select folder…</span>
         </button>
       )}
+
+      <p className="text-[10px] leading-snug text-ink-faint">
+        {native
+          ? 'Editable — changes save straight back to these files, and can be opened in your editor.'
+          : 'Browser mode — code loads read-only (run the desktop app to edit and save).'}
+      </p>
     </div>
   )
 }
@@ -162,12 +177,36 @@ export default function LaunchScreen({ onSelectApp, engineLive }: LaunchScreenPr
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [notice, setNotice] = useState<{ kind: 'error' | 'info'; text: string } | null>(null)
 
-  const handlePick = async (side: Side, fileList: FileList | null) => {
+  const native = hasNativeFileAccess()
+
+  const handlePickBrowser = async (side: Side, fileList: FileList | null) => {
     setNotice(null)
     setReading(side)
     try {
       const files = await readFolderFiles(fileList, side === 'ios' ? ['.swift'] : ['.dart'])
       const pick: FolderPick = { files, folderName: guessFolderName(files) }
+      if (side === 'ios') setIosPick(pick)
+      else setAndroidPick(pick)
+      if (files.length === 0) {
+        setNotice({
+          kind: 'error',
+          text: `No ${side === 'ios' ? '.swift' : '.dart'} files found in that folder.`,
+        })
+      }
+    } finally {
+      setReading(null)
+    }
+  }
+
+  const handlePickNative = async (side: Side) => {
+    if (!window.deviceBridge || !window.fileEditor) return
+    setNotice(null)
+    setReading(side)
+    try {
+      const rootDir = await window.deviceBridge.pickFile({ directory: true })
+      if (!rootDir) return
+      const files = await readFolderNative(rootDir, side === 'ios' ? ['.swift'] : ['.dart'])
+      const pick: FolderPick = { files, folderName: folderNameFromPath(rootDir) }
       if (side === 'ios') setIosPick(pick)
       else setAndroidPick(pick)
       if (files.length === 0) {
@@ -211,12 +250,19 @@ export default function LaunchScreen({ onSelectApp, engineLive }: LaunchScreenPr
       screens.push({
         id: m.key || `screen-${i}`,
         name: humanizeKey(m.key),
-        ios: { platform: 'ios', language: 'swift', fileName: m.ios.name, code: m.ios.content },
+        ios: {
+          platform: 'ios',
+          language: 'swift',
+          fileName: m.ios.name,
+          code: m.ios.content,
+          absolutePath: m.ios.absolutePath,
+        },
         android: {
           platform: 'android',
           language: 'dart',
           fileName: m.android.name,
           code: m.android.content,
+          absolutePath: m.android.absolutePath,
         },
         inconsistencies: result?.inconsistencies ?? [],
       })
@@ -284,7 +330,9 @@ export default function LaunchScreen({ onSelectApp, engineLive }: LaunchScreenPr
               hint="SwiftUI"
               pick={iosPick}
               disabled={analyzing || reading !== null}
-              onPick={(files) => handlePick('ios', files)}
+              native={native}
+              onPickBrowser={(files) => handlePickBrowser('ios', files)}
+              onPickNative={() => handlePickNative('ios')}
               onClear={() => setIosPick(null)}
             />
             <FolderPicker
@@ -292,7 +340,9 @@ export default function LaunchScreen({ onSelectApp, engineLive }: LaunchScreenPr
               hint="Flutter"
               pick={androidPick}
               disabled={analyzing || reading !== null}
-              onPick={(files) => handlePick('android', files)}
+              native={native}
+              onPickBrowser={(files) => handlePickBrowser('android', files)}
+              onPickNative={() => handlePickNative('android')}
               onClear={() => setAndroidPick(null)}
             />
           </div>

@@ -18,6 +18,10 @@ export interface CodePanel {
   /** The platform's theme source (Theme.swift / theme.dart), so previews can
    *  resolve `Theme.*` / `AppTheme.*` constants to real values. */
   themeCode?: string
+  /** Real absolute path on disk — only set for a codebase scanned via the
+   *  Electron native folder picker (see lib/codebaseScan.ts). Its presence is
+   *  what enables "Open in editor" and saving edits back to the file. */
+  absolutePath?: string
 }
 
 export type Verdict = 'propagate' | 'hold' | 'flag'

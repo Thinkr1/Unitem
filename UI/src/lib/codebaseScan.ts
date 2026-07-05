@@ -14,6 +14,11 @@ export interface ScannedFile {
   /** Path relative to the folder the user picked, e.g. "Views/DailyGoalsView.swift". */
   path: string
   content: string
+  /** Real absolute path on disk — only set when read via the Electron native
+   *  folder picker (readFolderNative), never for the browser's
+   *  `<input webkitdirectory>` flow (readFolderFiles), which only exposes a
+   *  File object with no writable filesystem handle. */
+  absolutePath?: string
 }
 
 export interface MatchedScreen {
@@ -55,6 +60,29 @@ export async function readFolderFiles(
     })),
   )
   return files
+}
+
+/** True inside the Electron shell (has real filesystem access); false in the
+ *  plain browser dev server, where folder picking is read-only. */
+export function hasNativeFileAccess(): boolean {
+  return typeof window !== 'undefined' && !!window.fileEditor && !!window.deviceBridge
+}
+
+/** Native folder read via Electron's main process — gives real absolute
+ *  paths, which is what makes "Open in editor" and saving edits back to disk
+ *  possible. `rootDir` comes from `window.deviceBridge.pickFile({ directory: true })`. */
+export async function readFolderNative(
+  rootDir: string,
+  extensions: string[],
+): Promise<ScannedFile[]> {
+  if (!window.fileEditor) return []
+  const files = await window.fileEditor.readFolder(rootDir, extensions)
+  return files.map((f) => ({
+    name: f.name,
+    path: f.relativePath,
+    content: f.content,
+    absolutePath: f.path,
+  }))
 }
 
 function stripExtension(fileName: string): string {
@@ -150,4 +178,11 @@ export function guessFolderName(files: ScannedFile[]): string | null {
   if (!first) return null
   const top = first.path.split('/')[0]
   return top || null
+}
+
+/** Same idea, but for a native folder pick where we have the real root path
+ *  directly (files' relative paths may have no subfolder segment at all). */
+export function folderNameFromPath(rootDir: string): string | null {
+  const segments = rootDir.split(/[\\/]/).filter(Boolean)
+  return segments[segments.length - 1] || null
 }

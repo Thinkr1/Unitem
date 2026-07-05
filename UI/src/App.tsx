@@ -500,6 +500,11 @@ export default function App() {
                   <ScreenPanel
                     panel={androidPanel}
                     title="Android"
+                    // Not editable in-app (keeps the highlighted read-only Code
+                    // view + line-linking), but still watches the file on disk —
+                    // pass onCodeChange so an external save (e.g. from VS Code)
+                    // still flows back into the app live. See "Open in editor".
+                    onCodeChange={setAndroidCode}
                     rulebook={rulebook}
                     flaggedLines={flaggedLines(items, 'android')}
                     activeLine={active?.android.line ?? null}

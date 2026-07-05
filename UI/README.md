@@ -45,6 +45,18 @@ Once a whole-app codebase is loaded, the Compare page shows a file-tree sidebar 
 
 The Android "Visual" tab (`FlutterPreview`) is keyed on the file name, so switching screens always tears down and recreates the DartPad iframe from scratch instead of reposting into a possibly-stale one — the compiled output can never lag behind a *different* file's Code tab. Editing/rescanning the same file keeps the iframe warm as before.
 
+Loaded (demo/custom) apps never touch the engine: "Resolve"/"Transfer all" apply each finding's `proposedFix` diff to the in-memory source directly (`src/lib/applyDiff.ts`), "Reset demo" restores the screen's original definition, and "Rescan" is hidden entirely (there's no real re-analysis to run without an engine behind the screen). Engine-backed screens (the paste flow, or a real `unitem serve`) are unchanged.
+
+### Editing with a real editor, inside the desktop app
+
+Folders picked from the **desktop app** (`npm run dev`, not `npm run dev:vite`) go through a native dialog (`window.deviceBridge.pickFile`) and are read via `window.fileEditor.readFolder` (`electron/fileEditor.cjs`) instead of the browser's read-only `<input webkitdirectory>` — that gives every screen a real absolute path (`CodePanel.absolutePath`), which unlocks, per file, in `ScreenPanel`:
+
+- **Open in editor** — launches VS Code if its CLI is on PATH, else the OS's default handler for that file type.
+- **Save to disk** — the iOS Code tab (and any external edit) debounced-writes back to the real file.
+- **Live external sync** — the file is watched on disk, so a save from VS Code (or any other editor) flows back into the app automatically, no manual reload.
+
+None of this needs the engine running; it's pure filesystem access from the Electron main process. In the plain browser dev server, or for the bundled demo apps (which don't exist on disk), these controls are present but disabled — code stays read-only/in-memory, exactly as before.
+
 ## Layout
 
 Three vertical panels with draggable dividers:
