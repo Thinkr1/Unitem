@@ -219,6 +219,7 @@ export const mockComparison: ComparisonResult = {
   ],
   rulebook: {
     'button.padding.vertical': '16',
+    'layout.padding.horizontal': '24',
     'color.primary': '#4F46E5',
     'button.cornerRadius': '12',
     'typography.heading.size': '28',

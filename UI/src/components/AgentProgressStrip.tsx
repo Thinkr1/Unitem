@@ -20,6 +20,7 @@ export interface LocalAnalysisProgress {
   detail: string
   done: number
   total: number
+  events?: { ts: string; text: string }[]
 }
 
 interface AgentProgressStripProps {
@@ -59,9 +60,13 @@ export default function AgentProgressStrip({
     )
   }
 
-  const events = isEngineLive ? (engineProgress?.events ?? []) : []
+  const events = isEngineLive
+    ? (engineProgress?.events ?? [])
+    : (localProgress?.events ?? [])
   const stepFill =
-    progress.total > 0 ? Math.min(1, progress.done / progress.total) : 0.35
+    progress.total > 0
+      ? Math.min(1, (progress.done + (isLocalLive ? 0.45 : 0)) / progress.total)
+      : 0.35
   const overallFill = overallPipelineFill(activeIndex, stepFill, STAGES.length)
 
   return (
@@ -117,7 +122,7 @@ export default function AgentProgressStrip({
       </div>
 
       {events.length > 0 && (
-        <div className="max-h-24 overflow-y-auto rounded-lg bg-surface-raised px-3 py-2">
+        <div className="max-h-32 overflow-y-auto rounded-lg bg-surface-raised px-3 py-2">
           {events
             .slice()
             .reverse()
