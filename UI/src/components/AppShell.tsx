@@ -23,6 +23,12 @@ export const PAGE_COPY: Record<
   },
 }
 
+interface ChromeBar {
+  title: string
+  subtitle?: string
+  action?: ReactNode
+}
+
 interface AppShellProps {
   page?: NavPage
   onNavigate?: (page: NavPage) => void
@@ -33,7 +39,7 @@ interface AppShellProps {
   editMode?: boolean
   onBackFromEdit?: () => void
   hideTopChrome?: boolean
-  topChrome?: { title: string; subtitle?: string; action?: ReactNode }
+  topChrome?: ChromeBar
   children: ReactNode
 }
 
@@ -51,9 +57,9 @@ export default function AppShell({
   children,
 }: AppShellProps) {
   const pageCopy = !editMode && page ? PAGE_COPY[page] : null
-  const baseChrome = topChrome ?? (hideTopChrome ? null : pageCopy)
+  const baseChrome: ChromeBar | null = topChrome ?? (hideTopChrome ? null : pageCopy)
 
-  const chrome =
+  const chrome: ChromeBar | null =
     baseChrome && editMode && onBackFromEdit
       ? {
           ...baseChrome,

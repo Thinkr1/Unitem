@@ -1,4 +1,5 @@
 import type { Inconsistency } from '../types'
+import ChangeKindBadge from './ChangeKindBadge'
 import DiffView from './DiffView'
 import SeverityBadge from './SeverityBadge'
 import VerdictBadge from './VerdictBadge'
@@ -76,10 +77,11 @@ export default function InconsistencyCard({
         )}
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="block truncate font-heading text-[12.5px] font-semibold text-ink">
               {item.property}
             </span>
+            {item.changeKind && <ChangeKindBadge kind={item.changeKind} />}
             {item.verdict && item.verdict !== 'flag' && (
               <VerdictBadge verdict={item.verdict} muted={settled} />
             )}
@@ -110,28 +112,32 @@ export default function InconsistencyCard({
               {bodyText}
             </p>
 
-            {!isHold && (
-              <div className="space-y-1 rounded-lg bg-well px-2.5 py-2">
-                {showExpected && (
+            <div className="space-y-1 rounded-lg bg-well px-2.5 py-2">
+              {isHold ? (
+                <div className="flex items-baseline gap-2 text-[11px]">
+                  <span className="text-ink-muted">Platform values (expected to differ)</span>
+                </div>
+              ) : (
+                showExpected && (
                   <div className="flex items-baseline gap-2 text-[11px]">
                     <span className="text-ink-muted">Should be:</span>
                     <span className="text-accent">{item.expected}</span>
                   </div>
-                )}
-                <DiffRow
-                  label="iOS"
-                  value={item.ios.value}
-                  matches={showExpected ? item.ios.value === item.expected : false}
-                />
-                <DiffRow
-                  label="Android"
-                  value={item.android.value}
-                  matches={
-                    showExpected ? item.android.value === item.expected : false
-                  }
-                />
-              </div>
-            )}
+                )
+              )}
+              <DiffRow
+                label="iOS"
+                value={item.ios.value}
+                matches={!isHold && showExpected ? item.ios.value === item.expected : false}
+              />
+              <DiffRow
+                label="Android"
+                value={item.android.value}
+                matches={
+                  !isHold && showExpected ? item.android.value === item.expected : false
+                }
+              />
+            </div>
 
             {item.proposedFix?.diff && (
               <div className="mt-2.5">

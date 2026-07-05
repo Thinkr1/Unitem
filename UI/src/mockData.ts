@@ -34,7 +34,7 @@ struct DailyGoalsView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
-                    .background(Color(hex: "#5A55F2"))
+                    .background(Color(hex: "#4F46E5"))
                     .foregroundColor(.white)
                     .cornerRadius(14)
             }
@@ -103,7 +103,7 @@ class _DailyGoalsScreenState extends State<DailyGoalsScreen> {
             const SizedBox(height: 24),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4F46E5),
+                backgroundColor: const Color(0xFF5A55F2),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 animationDuration: const Duration(milliseconds: 150),
                 shape: RoundedRectangleBorder(
@@ -123,24 +123,16 @@ class _DailyGoalsScreenState extends State<DailyGoalsScreen> {
   }
 }`
 
-const PRIMARY_COLOR_PROPAGATE_DIFF = `--- a/design-tokens/tokens.json
-+++ b/design-tokens/tokens.json
-@@ -2,6 +2,6 @@
-   "color": {
-     "primary": {
--      "value": "#5A55F2"
-+      "value": "#4F46E5"
-     },
-     "textSecondary": {
-       "value": "#8A8BB3"
---- a/sample-ios/Sources/Theme.swift
-+++ b/sample-ios/Sources/Theme.swift
-@@ -1,4 +1,4 @@
- enum Theme {
--    static let brandPrimary = Color(hex: "#5A55F2")
-+    static let brandPrimary = Color(hex: "#4F46E5")
-     static let textSecondary = Color(hex: "#8A8BB3")
- }
+const PRIMARY_COLOR_PROPAGATE_DIFF = `--- a/daily_goals_screen.dart
++++ b/daily_goals_screen.dart
+@@ -58,7 +58,7 @@
+             ElevatedButton(
+               style: ElevatedButton.styleFrom(
+-                backgroundColor: const Color(0xFF5A55F2),
++                backgroundColor: const Color(0xFF4F46E5),
+                 padding: const EdgeInsets.symmetric(vertical: 12),
+                 animationDuration: const Duration(milliseconds: 150),
+                 shape: RoundedRectangleBorder(
 `
 
 const BUTTON_PADDING_FLAG_DIFF = `--- a/DailyGoalsView.swift
@@ -149,7 +141,7 @@ const BUTTON_PADDING_FLAG_DIFF = `--- a/DailyGoalsView.swift
                      .frame(maxWidth: .infinity)
 -                    .padding(.vertical, 20)
 +                    .padding(.vertical, 16)
-                     .background(Color(hex: "#5A55F2"))
+                     .background(Color(hex: "#4F46E5"))
                      .foregroundColor(.white)
 `
 
@@ -168,15 +160,53 @@ export const mockComparison: ComparisonResult = {
   },
   inconsistencies: [
     {
-      id: 'inc-001',
+      id: 'inc-hold',
+      property: 'Water stepper control',
+      severity: 'info',
+      rule: 'Stepper controls follow platform-native patterns.',
+      ios: { value: 'Button("-") / Button("+")', line: 26 },
+      android: { value: 'IconButton(Icons.remove/add)', line: 89 },
+      status: 'open',
+      verdict: 'hold',
+      changeKind: 'platform-native',
+      confidence: 0.91,
+      reason:
+        'iOS uses labeled stepper buttons per Apple HIG; Android uses Material IconButtons for the same action. Each platform keeps its native control — this difference is correct, not drift.',
+      conventionRefs: ['hold/native-stepper'],
+    },
+    {
+      id: 'inc-propagate',
+      property: 'Primary color',
+      severity: 'error',
+      rule: 'Primary actions use the brand indigo token (color.primary).',
+      ios: { value: '#4F46E5', line: 37 },
+      android: { value: '#5A55F2', line: 106 },
+      status: 'open',
+      verdict: 'propagate',
+      changeKind: 'token',
+      confidence: 0.88,
+      reason:
+        'Design updated the primary brand color to #4F46E5 on iOS — propagate the token change to Android.',
+      conventionRefs: ['color.primary'],
+      originPlatform: 'ios',
+      proposedFix: {
+        targetPlatform: 'android',
+        file: 'daily_goals_screen.dart',
+        diff: PRIMARY_COLOR_PROPAGATE_DIFF,
+      },
+      prUrl: 'https://github.com/Thinkr1/Unitem/pull/999',
+    },
+    {
+      id: 'inc-flag',
       property: 'Button padding',
       severity: 'error',
       rule: 'Primary buttons use 16pt vertical padding (button.padding.vertical).',
       expected: '16',
-      ios: { value: '20', line: 33 },
-      android: { value: '12', line: 62 },
+      ios: { value: '20', line: 36 },
+      android: { value: '12', line: 107 },
       status: 'open',
       verdict: 'flag',
+      changeKind: 'drift',
       confidence: 0.94,
       reason: 'Both platforms drifted from the 16pt vertical-padding token — fix both.',
       conventionRefs: ['button.padding.vertical'],
@@ -185,77 +215,6 @@ export const mockComparison: ComparisonResult = {
         file: 'DailyGoalsView.swift',
         diff: BUTTON_PADDING_FLAG_DIFF,
       },
-    },
-    {
-      id: 'inc-002',
-      property: 'Primary color',
-      severity: 'error',
-      rule: 'Primary actions use the brand indigo token (color.primary).',
-      ios: { value: '#5A55F2', line: 37 },
-      android: { value: '#4F46E5', line: 61 },
-      status: 'open',
-      verdict: 'propagate',
-      confidence: 0.88,
-      reason:
-        'Design updated the primary brand color to #4F46E5. Android already has it — propagate the token change to iOS.',
-      conventionRefs: ['color.primary'],
-      originPlatform: 'android',
-      proposedFix: {
-        targetPlatform: 'ios',
-        file: 'sample-ios/Sources/Theme.swift',
-        diff: PRIMARY_COLOR_PROPAGATE_DIFF,
-      },
-      prUrl: 'https://github.com/Thinkr1/Unitem/pull/999',
-    },
-    {
-      id: 'inc-003',
-      property: 'Button corner radius',
-      severity: 'error',
-      rule: 'Buttons are rounded with a 12pt radius (button.cornerRadius).',
-      expected: '12',
-      ios: { value: '14', line: 36 },
-      android: { value: '8', line: 65 },
-      status: 'open',
-    },
-    {
-      id: 'inc-004',
-      property: 'Heading font size',
-      severity: 'warning',
-      rule: 'Screen headings render at 28pt Space Grotesk (typography.heading.size).',
-      expected: '28',
-      ios: { value: '30', line: 12 },
-      android: { value: '26', line: 27 },
-      status: 'open',
-    },
-    {
-      id: 'inc-005',
-      property: 'Progress bar height',
-      severity: 'warning',
-      rule: 'Progress bars are 12pt tall (progress.height).',
-      expected: '12',
-      ios: { value: '10', line: 17 },
-      android: { value: '8', line: 35 },
-      status: 'open',
-    },
-    {
-      id: 'inc-006',
-      property: 'Press animation duration',
-      severity: 'warning',
-      rule: 'Interactive state changes animate over 200ms (motion.duration.press).',
-      expected: '200ms',
-      ios: { value: '300ms', line: 38 },
-      android: { value: '150ms', line: 63 },
-      status: 'open',
-    },
-    {
-      id: 'inc-007',
-      property: 'Workout button label',
-      severity: 'info',
-      rule: 'The workout action is labelled "Complete workout" (copy.workout.label).',
-      expected: 'Complete workout',
-      ios: { value: '"Complete workout"', line: 30 },
-      android: { value: "'Start workout'", line: 70 },
-      status: 'open',
     },
   ],
   rulebook: {

@@ -122,6 +122,12 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  useEffect(() => {
+    if (activeId != null) return
+    const hold = items.find((i) => i.verdict === 'hold' && i.status === 'open')
+    if (hold) setActiveId(hold.id)
+  }, [items, activeId])
+
   // Rescan = run the real pipeline (discover -> map -> judge agents -> fixes).
   const onRescan = async () => {
     setRescanning(true)

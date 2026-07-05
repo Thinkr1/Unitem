@@ -60,7 +60,16 @@ export default function PipelineStrip() {
     }
   }, [])
 
-  if (!progress) return null
+  if (!progress) {
+    return (
+      <div className="pipeline-strip mb-2 flex items-center gap-2 glass-card px-3 py-2">
+        <span className="agent-live-tag shrink-0">● pipeline</span>
+        <p className="truncate font-mono text-[9px] text-ink-faint">
+          Extract facts → map screens → classify → judge
+        </p>
+      </div>
+    )
+  }
 
   const events = progress.events ?? []
   const stepFill =

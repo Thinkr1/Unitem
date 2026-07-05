@@ -1,4 +1,5 @@
 import type { Inconsistency, Severity } from '../types'
+import VerdictBadge from './VerdictBadge'
 
 const COUNT_DOT: Record<Severity, string> = {
   error: 'bg-severity-error',
@@ -128,6 +129,9 @@ export default function OverviewPage({ items }: OverviewPageProps) {
                 <span className="font-heading text-[12px] font-semibold text-ink">
                   {item.property}
                 </span>
+                {item.verdict && (
+                  <VerdictBadge verdict={item.verdict} />
+                )}
                 <span className="text-ink-faint">iOS</span>
                 <span className="text-mismatch">{item.ios.value}</span>
                 <span className="text-ink-faint">Android</span>

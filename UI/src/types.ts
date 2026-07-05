@@ -22,6 +22,8 @@ export interface CodePanel {
 
 export type Verdict = 'propagate' | 'hold' | 'flag'
 
+export type ChangeKind = 'token' | 'platform-native' | 'drift'
+
 export interface ProposedFix {
   targetPlatform: 'ios' | 'android'
   file: string
@@ -43,6 +45,7 @@ export interface Inconsistency {
   status: Status
   // ── engine-provided fields (all optional — see ARCHITECTURE-ALIGNMENT.md) ──
   verdict?: Verdict
+  changeKind?: ChangeKind
   confidence?: number
   reason?: string
   conventionRefs?: string[]

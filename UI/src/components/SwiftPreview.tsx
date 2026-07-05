@@ -1,12 +1,11 @@
 import { useMemo } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties } from 'react'
 import type { Inconsistency } from '../types'
 import { DeviceCanvas, IPhoneFrame } from './PhoneChrome'
 import {
   buildSwiftTheme,
   firstStringArg,
   parseSwiftUI,
-  resolveColor,
   resolveStyle,
   stackAlignment,
   stackSpacing,

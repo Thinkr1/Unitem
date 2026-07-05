@@ -6,8 +6,8 @@ export type Filter = 'all' | Verdict | 'ignored'
 
 const FILTERS: { id: Filter; label: string; hint: string }[] = [
   { id: 'all', label: 'All', hint: 'Every issue' },
-  { id: 'propagate', label: 'Sync', hint: 'Copy iOS → Android' },
-  { id: 'hold', label: 'OK as-is', hint: 'Keep different' },
+  { id: 'propagate', label: 'Sync', hint: 'Apply token sync' },
+  { id: 'hold', label: 'OK as-is', hint: 'Platform-native — leave as-is' },
   { id: 'flag', label: 'Needs fix', hint: 'Requires action' },
   { id: 'ignored', label: 'Dismissed', hint: 'Already skipped' },
 ]
@@ -72,6 +72,19 @@ export default function InconsistenciesPanel({
   const total = issues.length
   const score = total === 0 ? 100 : Math.round((resolved / total) * 100)
 
+  const openVerdictSummary = useMemo(() => {
+    const holds = open.filter((i) => i.verdict === 'hold').length
+    const syncs = open.filter((i) => i.verdict === 'propagate').length
+    const fixes = open.filter(
+      (i) => i.verdict === 'flag' || (!i.verdict && i.status === 'open'),
+    ).length
+    const parts: string[] = []
+    if (holds) parts.push(`${holds} hold`)
+    if (syncs) parts.push(`${syncs} sync`)
+    if (fixes) parts.push(`${fixes} fix`)
+    return parts.join(' · ')
+  }, [open])
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     return items.filter((i) => {
@@ -99,6 +112,7 @@ export default function InconsistenciesPanel({
           <h2 className="font-heading text-[15px] font-bold text-ink">Review</h2>
           <p className="text-[11px] text-ink-muted">
             {resolved} fixed · {open.length} open
+            {openVerdictSummary ? ` · ${openVerdictSummary}` : ''}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
