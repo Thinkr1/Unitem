@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
-import type { Inconsistency, Severity } from './types'
+import type { AppScreen, CodebaseApp, Inconsistency, Severity } from './types'
 import { mockComparison } from './mockData'
 import {
   acceptFinding,
@@ -19,6 +19,8 @@ import AppShell from './components/AppShell'
 import { type NavPage } from './components/NavRail'
 import PipelineStrip from './components/PipelineStrip'
 import PasteScreen from './components/PasteScreen'
+import LaunchScreen from './components/LaunchScreen'
+import ScreenTabs from './components/ScreenTabs'
 import OverviewPage from './components/OverviewPage'
 import AgentsPage from './components/AgentsPage'
 import RulebookPage from './components/RulebookPage'
@@ -52,7 +54,7 @@ function ResizeHandle() {
 }
 
 export default function App() {
-  const [view, setView] = useState<'paste' | 'dashboard'>('paste')
+  const [view, setView] = useState<'launch' | 'paste' | 'dashboard'>('launch')
   const [page, setPage] = useState<NavPage>('comparison')
   const [screenName, setScreenName] = useState('login')
   const [rulebook, setRulebook] = useState<Record<string, string>>(
@@ -72,6 +74,17 @@ export default function App() {
   >(null)
   // null = not yet checked; false = engine unreachable (mock/sample data shown)
   const [engineLive, setEngineLive] = useState<boolean | null>(null)
+  // Whether the user has picked a demo app / analyzed something at least once
+  // — controls whether the "back" arrow from Edit source returns to the
+  // dashboard or all the way back to the launch screen.
+  const [hasAnalyzed, setHasAnalyzed] = useState(false)
+
+  // Whole-app analysis: when set, the comparison page shows a screen switcher
+  // and Overview/Rulebook aggregate findings across every screen instead of
+  // just the one currently open.
+  const [loadedApp, setLoadedApp] = useState<CodebaseApp | null>(null)
+  const [activeScreenId, setActiveScreenId] = useState<string | null>(null)
+  const [screenItems, setScreenItems] = useState<Record<string, Inconsistency[]>>({})
 
   const [items, setItems] = useState<Inconsistency[]>(
     mockComparison.inconsistencies,
@@ -92,6 +105,49 @@ export default function App() {
     if (result.rulebook) setRulebook(result.rulebook)
   }
 
+  /** Swap the comparison panels to one screen of a loaded whole-app codebase. */
+  const applyScreen = (screen: AppScreen, screenInconsistencies: Inconsistency[]) => {
+    setIosPanelMeta(screen.ios)
+    setAndroidPanelMeta(screen.android)
+    setIosCode(screen.ios.code)
+    setAndroidCode(screen.android.code)
+    setAndroidPreview(undefined)
+    setItems(screenInconsistencies)
+    setScreenName(screen.id)
+    setActiveScreenId(screen.id)
+    setActiveId(null)
+    setIosPulse(null)
+    setAndroidPulse(null)
+  }
+
+  // Launch screen -> load a whole codebase (a bundled demo, or one scanned
+  // from the user's own iOS + Android folders) and jump straight to it.
+  const onSelectApp = (app: CodebaseApp) => {
+    const initialItems = Object.fromEntries(app.screens.map((s) => [s.id, s.inconsistencies]))
+    setLoadedApp(app)
+    setScreenItems(initialItems)
+    setRulebook(app.rulebook)
+    setTransferMsg(null)
+    applyScreen(app.screens[0], initialItems[app.screens[0].id] ?? [])
+    setHasAnalyzed(true)
+    setPage('comparison')
+    setView('dashboard')
+  }
+
+  const onSwitchScreen = (screenId: string) => {
+    if (!loadedApp) return
+    const screen = loadedApp.screens.find((s) => s.id === screenId)
+    if (!screen) return
+    setTransferMsg(null)
+    applyScreen(screen, screenItems[screenId] ?? screen.inconsistencies)
+  }
+
+  const onPasteInstead = () => {
+    setLoadedApp(null)
+    setScreenItems({})
+    setView('paste')
+  }
+
   const refreshFromEngine = async () => {
     const result = await fetchComparison(screenName)
     setEngineLive(result !== null)
@@ -99,12 +155,14 @@ export default function App() {
   }
 
   // On load, pull the engine's latest state (tickets from the last `unitem
-  // diff` run + the mapped screens' real source). Falls back to the mock.
+  // diff` run + the mapped screens' real source). Falls back to the launch
+  // screen so the user can pick a demo app or their own codebase.
   useEffect(() => {
     fetchComparison().then((result) => {
       setEngineLive(result !== null)
       if (result && result.inconsistencies.length > 0) {
         applyComparison(result)
+        setHasAnalyzed(true)
         setView('dashboard') // engine has judged tickets — go straight to review
       }
     })
@@ -138,23 +196,31 @@ export default function App() {
     // (mounted) DartPad iframe reposts + recompiles in place. See FlutterPreview.
   }
 
+  // Whole-app mode keeps a per-screen inconsistency list (screenItems) so
+  // switching screens and Overview/Rulebook's totals stay in sync with edits.
+  const syncScreenItems = (next: Inconsistency[]) => {
+    if (loadedApp && activeScreenId) {
+      setScreenItems((prev) => ({ ...prev, [activeScreenId]: next }))
+    }
+  }
+
   const onResolve = async (id: string) => {
     const updated = await acceptFinding(id) // engine applies the fix / opens PR
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === id ? (updated ?? { ...i, status: 'resolved' }) : i,
-      ),
+    const next: Inconsistency[] = items.map((i) =>
+      i.id === id ? (updated ?? { ...i, status: 'resolved' as const }) : i,
     )
+    setItems(next)
+    syncScreenItems(next)
     await refreshFromEngine()
   }
 
   const onIgnore = async (id: string) => {
     const updated = await overrideFinding(id, 'hold', 'dismissed from console')
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === id ? (updated ?? { ...i, status: 'ignored' }) : i,
-      ),
+    const next: Inconsistency[] = items.map((i) =>
+      i.id === id ? (updated ?? { ...i, status: 'ignored' as const }) : i,
     )
+    setItems(next)
+    syncScreenItems(next)
   }
 
   // Whole-screen transfer: the engine's writer agent regenerates the Flutter
@@ -222,8 +288,12 @@ export default function App() {
   }
 
   const onAnalyze = async (payload: { iosCode: string; androidCode: string }) => {
+    setLoadedApp(null)
+    setScreenItems({})
+    setActiveScreenId(null)
     setIosCode(payload.iosCode)
     setAndroidCode(payload.androidCode)
+    setHasAnalyzed(true)
     setPage('comparison')
     setView('dashboard')
     const result = await analyzePair(payload.iosCode, payload.androidCode)
@@ -238,6 +308,32 @@ export default function App() {
     previewCode: androidPreview,
   }
 
+  // Whole-app aggregation: Overview/Rulebook reflect every screen in the
+  // loaded codebase, not just the one currently open in Compare.
+  const overviewItems = loadedApp ? Object.values(screenItems).flat() : items
+  const screenIssueCounts: Record<string, number> = loadedApp
+    ? Object.fromEntries(
+        loadedApp.screens.map((s) => [
+          s.id,
+          (screenItems[s.id] ?? s.inconsistencies).filter(
+            (i) => i.status === 'open' && i.verdict !== 'hold',
+          ).length,
+        ]),
+      )
+    : {}
+
+  const onGoToLaunch = () => setView('launch')
+
+  if (view === 'launch') {
+    return (
+      <LaunchScreen
+        onSelectApp={onSelectApp}
+        onPasteInstead={onPasteInstead}
+        engineLive={engineLive}
+      />
+    )
+  }
+
   if (view === 'paste') {
     return (
       <AppShell
@@ -248,10 +344,11 @@ export default function App() {
         }}
         onEditCode={() => setView('paste')}
         onRescan={onRescan}
+        onGoToLaunch={onGoToLaunch}
         rescanning={rescanning}
         engineLive={engineLive}
         editMode
-        onBackFromEdit={() => setView('dashboard')}
+        onBackFromEdit={() => setView(hasAnalyzed ? 'dashboard' : 'launch')}
         topChrome={{
           title: 'Edit source',
           subtitle: 'Paste or update iOS & Android code',
@@ -272,6 +369,7 @@ export default function App() {
       onNavigate={setPage}
       onEditCode={() => setView('paste')}
       onRescan={onRescan}
+      onGoToLaunch={onGoToLaunch}
       rescanning={rescanning}
       engineLive={engineLive}
       hideTopChrome={page === 'comparison'}
@@ -296,6 +394,16 @@ export default function App() {
                   ✕
                 </button>
               </div>
+            )}
+            {loadedApp && (
+              <ScreenTabs
+                appName={loadedApp.name}
+                appIcon={loadedApp.icon}
+                screens={loadedApp.screens}
+                activeScreenId={activeScreenId}
+                issueCounts={screenIssueCounts}
+                onSelect={onSwitchScreen}
+              />
             )}
             <PipelineStrip />
             <Group orientation="horizontal" className="min-h-0 flex-1 gap-0">
@@ -348,11 +456,11 @@ export default function App() {
             </Group>
           </div>
         ) : page === 'overview' ? (
-          <OverviewPage items={items} />
+          <OverviewPage items={overviewItems} />
         ) : page === 'agents' ? (
           <AgentsPage />
         ) : page === 'rulebook' ? (
-          <RulebookPage rulebook={rulebook} items={items} />
+          <RulebookPage rulebook={rulebook} items={overviewItems} />
         ) : null}
     </AppShell>
   )

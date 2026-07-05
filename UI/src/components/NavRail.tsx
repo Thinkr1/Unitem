@@ -58,6 +58,7 @@ interface NavRailProps {
   onNavigate?: (page: NavPage) => void
   onEditCode?: () => void
   onRescan?: () => void
+  onGoToLaunch?: () => void
   rescanning?: boolean
   engineLive?: boolean | null
   editMode?: boolean
@@ -173,6 +174,7 @@ export default function NavRail({
   onNavigate,
   onEditCode,
   onRescan,
+  onGoToLaunch,
   rescanning = false,
   engineLive = null,
   editMode = false,
@@ -216,8 +218,15 @@ export default function NavRail({
             </div>
           )}
 
-          {(onEditCode || (!editMode && onRescan && page === 'comparison')) && (
+          {(onEditCode ||
+            (!editMode && onRescan && page === 'comparison') ||
+            (!editMode && onGoToLaunch)) && (
             <div className="wraparound-quick-actions mt-1 flex h-9 shrink-0 gap-1.5">
+              {!editMode && onGoToLaunch && (
+                <NavQuick title="Codebases" onClick={onGoToLaunch}>
+                  <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
+                </NavQuick>
+              )}
               {onEditCode && (
                 <NavQuick title="Edit code" active={editMode} onClick={onEditCode}>
                   <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />

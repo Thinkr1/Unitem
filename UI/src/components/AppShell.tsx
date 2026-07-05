@@ -34,6 +34,7 @@ interface AppShellProps {
   onNavigate?: (page: NavPage) => void
   onEditCode?: () => void
   onRescan?: () => void
+  onGoToLaunch?: () => void
   rescanning?: boolean
   engineLive?: boolean | null
   editMode?: boolean
@@ -48,6 +49,7 @@ export default function AppShell({
   onNavigate,
   onEditCode,
   onRescan,
+  onGoToLaunch,
   rescanning = false,
   engineLive = null,
   editMode = false,
@@ -82,6 +84,7 @@ export default function AppShell({
         onNavigate={onNavigate}
         onEditCode={onEditCode}
         onRescan={onRescan}
+        onGoToLaunch={onGoToLaunch}
         rescanning={rescanning}
         engineLive={engineLive}
         editMode={editMode}
