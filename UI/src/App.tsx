@@ -11,6 +11,7 @@ import {
   resetAndroid,
   transferDesign,
 } from './lib/api'
+import { applyUnifiedDiff } from './lib/applyDiff'
 import ScreenPanel, { type LinePulse } from './components/ScreenPanel'
 import InconsistenciesPanel, {
   type Filter,
@@ -175,6 +176,8 @@ export default function App() {
   }, [items, activeId])
 
   // Rescan = run the real pipeline (discover -> map -> judge agents -> fixes).
+  // Only meaningful when there's an engine behind the current screen — hidden
+  // entirely for loaded (demo/custom) apps, see `showFileBrowser`/render below.
   const onRescan = async () => {
     setRescanning(true)
     const result = await rescan(screenName)
@@ -193,36 +196,98 @@ export default function App() {
     }
   }
 
+  /** Applies a finding's proposedFix diff to the in-memory iOS/Android source —
+   *  the client-side equivalent of what the engine's writer agent does on disk.
+   *  Loaded (demo/custom) apps have no engine behind them, so this is the only
+   *  way "Resolve"/"Transfer all" can actually change anything for them. */
+  const applyFixToCode = (fix: NonNullable<Inconsistency['proposedFix']>) => {
+    if (fix.targetPlatform === 'ios') {
+      setIosCode((prev) => applyUnifiedDiff(prev, fix.diff))
+    } else {
+      setAndroidCode((prev) => applyUnifiedDiff(prev, fix.diff))
+    }
+  }
+
   const onResolve = async (id: string) => {
+    if (loadedApp) {
+      // Local codebase — no engine to call; apply the fix (if any) ourselves.
+      const item = items.find((i) => i.id === id)
+      if (item?.proposedFix) applyFixToCode(item.proposedFix)
+      const next: Inconsistency[] = items.map((i) =>
+        i.id === id ? { ...i, status: 'resolved' as const } : i,
+      )
+      setItems(next)
+      syncScreenItems(next)
+      return
+    }
     const updated = await acceptFinding(id) // engine applies the fix / opens PR
     const next: Inconsistency[] = items.map((i) =>
       i.id === id ? (updated ?? { ...i, status: 'resolved' as const }) : i,
     )
     setItems(next)
-    syncScreenItems(next)
     await refreshFromEngine()
   }
 
   const onIgnore = async (id: string) => {
+    if (loadedApp) {
+      const next: Inconsistency[] = items.map((i) =>
+        i.id === id ? { ...i, status: 'ignored' as const } : i,
+      )
+      setItems(next)
+      syncScreenItems(next)
+      return
+    }
     const updated = await overrideFinding(id, 'hold', 'dismissed from console')
     const next: Inconsistency[] = items.map((i) =>
       i.id === id ? (updated ?? { ...i, status: 'ignored' as const }) : i,
     )
     setItems(next)
-    syncScreenItems(next)
   }
 
-  // Whole-screen transfer: the engine's writer agent regenerates the Flutter
-  // screen + theme from the iOS design. Writes ONLY to the Android side.
-  // If the request fails (engine down, or the fetch timed out on a long run),
-  // re-sync from the engine — never fall back to per-finding accepts, because
-  // the token-propagate path regenerates Theme.swift and would clobber manual
-  // iOS edits.
+  // Whole-screen transfer.
+  // - Loaded (demo/custom) apps: apply every open flag/propagate finding's
+  //   proposedFix to the in-memory code directly — there is no engine mapping
+  //   for these screens, so calling `/transfer` would only ever fail with
+  //   "isn't a transferable screen".
+  // - Engine-backed screens (paste flow / a real `unitem serve`): unchanged —
+  //   the writer agent regenerates the Flutter screen + theme from the iOS
+  //   design and writes ONLY to the Android side.
   const onTransfer = async () => {
     if (transferring) return
     setTransferring(true)
     setTransferMsg(null)
     try {
+      if (loadedApp) {
+        const openIssues = items.filter((i) => i.status === 'open' && i.verdict !== 'hold')
+        if (openIssues.length === 0) {
+          setTransferMsg({ kind: 'success', text: 'Nothing to transfer — no open issues on this screen.' })
+          return
+        }
+        let nextIos = iosCode
+        let nextAndroid = androidCode
+        for (const item of openIssues) {
+          if (!item.proposedFix) continue
+          if (item.proposedFix.targetPlatform === 'ios') {
+            nextIos = applyUnifiedDiff(nextIos, item.proposedFix.diff)
+          } else {
+            nextAndroid = applyUnifiedDiff(nextAndroid, item.proposedFix.diff)
+          }
+        }
+        setIosCode(nextIos)
+        setAndroidCode(nextAndroid)
+        const resolvedIds = new Set(openIssues.map((i) => i.id))
+        const next: Inconsistency[] = items.map((i) =>
+          resolvedIds.has(i.id) ? { ...i, status: 'resolved' as const } : i,
+        )
+        setItems(next)
+        syncScreenItems(next)
+        setTransferMsg({
+          kind: 'success',
+          text: `Applied ${openIssues.length} fix${openIssues.length === 1 ? '' : 'es'} locally to this screen.`,
+        })
+        return
+      }
+
       const result = await transferDesign(screenName, iosCode)
       if (!result) {
         // engine unreachable, or the request errored before a JSON reply
@@ -243,7 +308,7 @@ export default function App() {
         setTransferMsg({
           kind: 'error',
           text: unmapped
-            ? `"${screenName}" isn't a transferable screen — it has no files on disk. Reload to switch to a mapped screen like "login", then edit and transfer there.`
+            ? `"${screenName}" isn't a transferable screen on the engine — it has no files on disk there.`
             : `Transfer failed: ${t.error ?? 'unknown error'}`,
         })
         return
@@ -262,8 +327,19 @@ export default function App() {
     }
   }
 
-  // DEV ONLY: put the old Material design back so the transfer can be re-run.
+  // "Reset demo": for a loaded app, undoes local resolve/transfer edits by
+  // restoring the current screen to its original definition. For an
+  // engine-backed screen, puts the old Material design back on disk so the
+  // transfer can be re-run (unchanged, engine-only feature).
   const onResetDemo = async () => {
+    if (loadedApp) {
+      const original = loadedApp.screens.find((s) => s.id === activeScreenId)
+      if (!original) return
+      setTransferMsg(null)
+      applyScreen(original, original.inconsistencies)
+      setScreenItems((prev) => ({ ...prev, [original.id]: original.inconsistencies }))
+      return
+    }
     const result = await resetAndroid(screenName)
     setEngineLive(result !== null)
     if (result) applyComparison(result)
@@ -353,7 +429,9 @@ export default function App() {
       page={page}
       onNavigate={setPage}
       onEditCode={() => setView('paste')}
-      onRescan={onRescan}
+      // Rescan re-runs the real engine pipeline — there's nothing to rescan
+      // for a loaded (demo/custom) app with no engine behind it.
+      onRescan={loadedApp ? undefined : onRescan}
       onGoToLaunch={onGoToLaunch}
       rescanning={rescanning}
       engineLive={engineLive}

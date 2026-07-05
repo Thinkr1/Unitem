@@ -1,5 +1,46 @@
-import type { AppScreen, CodebaseApp, Inconsistency } from './types'
+import type { AppScreen, CodebaseApp, Inconsistency, ProposedFix } from './types'
 import { mockComparison } from './mockData'
+
+/** Builds a minimal, always-valid unified diff that replaces `targetLine`'s
+ *  first occurrence of `find` with `replace` — used so every propagate/flag
+ *  finding below has a real, applicable fix (see lib/applyDiff.ts), instead
+ *  of hand-writing diffs that can silently drift out of sync with the code
+ *  above as it's edited. */
+function buildLineFix(
+  fileName: string,
+  code: string,
+  targetPlatform: 'ios' | 'android',
+  find: string,
+  replace: string,
+  context = 1,
+): ProposedFix {
+  const lines = code.split('\n')
+  const idx = lines.findIndex((l) => l.includes(find))
+  if (idx === -1) {
+    throw new Error(`buildLineFix: "${find}" not found in ${fileName}`)
+  }
+  const start = Math.max(0, idx - context)
+  const end = Math.min(lines.length, idx + context + 1)
+  const before = lines.slice(start, idx)
+  const after = lines.slice(idx + 1, end)
+  const oldLine = lines[idx]
+  const newLine = oldLine.replace(find, replace)
+  const count = before.length + 1 + after.length
+  const hunkLines = [
+    ...before.map((l) => ` ${l}`),
+    `-${oldLine}`,
+    `+${newLine}`,
+    ...after.map((l) => ` ${l}`),
+  ]
+  const diff = [
+    `--- a/${fileName}`,
+    `+++ b/${fileName}`,
+    `@@ -${start + 1},${count} +${start + 1},${count} @@`,
+    ...hunkLines,
+    '',
+  ].join('\n')
+  return { targetPlatform, file: fileName, diff }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bundled demo codebases for the launch screen. Each app is a small but real
@@ -534,6 +575,13 @@ function withLines(items: Inconsistency[], ios: string, android: string): Incons
         ...item,
         ios: { ...item.ios, line: findLine(iosLines, '.background(Color(hex: "#4F46E5"))') },
         android: { ...item.android, line: findLine(androidLines, 'backgroundColor: const Color(0xFF5A55F2)') },
+        proposedFix: buildLineFix(
+          'home_screen.dart',
+          android,
+          'android',
+          'Color(0xFF5A55F2)',
+          'Color(0xFF4F46E5)',
+        ),
       }
     }
     if (item.id === 'fit-habits-flag') {
@@ -541,6 +589,7 @@ function withLines(items: Inconsistency[], ios: string, android: string): Incons
         ...item,
         ios: { ...item.ios, line: findLine(iosLines, '.cornerRadius(14)') },
         android: { ...item.android, line: findLine(androidLines, 'BorderRadius.circular(10)') },
+        proposedFix: buildLineFix('HabitListView.swift', ios, 'ios', '.cornerRadius(14)', '.cornerRadius(12)'),
       }
     }
     if (item.id === 'fit-profile-hold') {
@@ -941,6 +990,13 @@ const productsScreen: AppScreen = {
       reason: 'Android\'s "Add" button is still on the previous teal shade — propagate the current brand token.',
       conventionRefs: ['color.accent'],
       originPlatform: 'ios',
+      proposedFix: buildLineFix(
+        'product_list_screen.dart',
+        PRODUCTS_DART,
+        'android',
+        'Color(0xFF14B8A6)',
+        'Color(0xFF0EA5A4)',
+      ),
     },
   ],
 }
@@ -965,20 +1021,13 @@ const cartScreen: AppScreen = {
       confidence: 0.74,
       reason: 'Android drifted from the 12pt corner-radius token on the primary Checkout button.',
       conventionRefs: ['button.cornerRadius'],
-      proposedFix: {
-        targetPlatform: 'android',
-        file: 'cart_screen.dart',
-        diff: `--- a/cart_screen.dart
-+++ b/cart_screen.dart
-@@ -34,7 +34,7 @@
-               ),
-               onPressed: () {}, // navigate to CheckoutScreen
-               shape: RoundedRectangleBorder(
--                borderRadius: BorderRadius.circular(8),
-+                borderRadius: BorderRadius.circular(12),
-               ),
-`,
-      },
+      proposedFix: buildLineFix(
+        'cart_screen.dart',
+        CART_DART,
+        'android',
+        'BorderRadius.circular(8)',
+        'BorderRadius.circular(12)',
+      ),
     },
   ],
 }
