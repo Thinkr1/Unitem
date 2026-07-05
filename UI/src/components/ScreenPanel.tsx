@@ -131,8 +131,19 @@ export default function ScreenPanel({
       ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [pulse, view])
 
-  // When an inconsistency is selected, switch to code view is opt-in —
-  // visual view handles its own highlight so we don't force a tab switch.
+  const previewSource = editable ? panel.code : (panel.previewCode ?? panel.code)
+
+  const tabs: { id: 'visual' | 'simulator' | 'code'; label: string; title?: string }[] = ideMode
+    ? [
+        { id: 'code', label: 'Code' },
+        { id: 'visual', label: 'Preview', title: 'Visual preview' },
+        { id: 'simulator', label: 'Sim', title: 'Simulator' },
+      ]
+    : [
+        { id: 'visual', label: 'Visual' },
+        { id: 'simulator', label: 'Sim', title: 'Simulator' },
+        { id: 'code', label: 'Code' },
+      ]
 
   return (
     <section className="glass-card flex h-full min-w-0 flex-col overflow-hidden">
@@ -169,58 +180,28 @@ export default function ScreenPanel({
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
             </svg>
           </button>
-          {!ideMode && (
+          {tabs.map((tab) => (
             <button
-              onClick={() => setView('visual')}
-              className={`rounded-lg border px-3 py-1.5 font-heading text-[11px] font-bold transition-all ${
-                view === 'visual'
-                  ? 'border-[#8fa824] bg-accent text-accent-contrast shadow-sm'
-                  : 'glass-btn-quiet border-transparent px-2.5'
-              }`}
-            >
-              Visual
-            </button>
-          )}
-          {(
-            ideMode
-              ? ([['code', 'Code']] as const)
-              : ([
-                  ['simulator', 'Sim'],
-                  ['code', 'Code'],
-                ] as const)
-          ).map(([tab, label]) => (
-            <button
-              key={tab}
-              onClick={() => setView(tab)}
-              title={tab === 'simulator' ? 'Simulator' : 'Source code'}
+              key={tab.id}
+              onClick={() => setView(tab.id)}
+              title={tab.title ?? (tab.id === 'code' ? 'Source code' : undefined)}
               className={`rounded-lg px-2 py-1.5 font-heading text-[10px] font-semibold transition-all ${
-                view === tab
-                  ? 'border border-[#8fa824] bg-surface-raised text-ink'
+                view === tab.id
+                  ? tab.id === 'visual' && !ideMode
+                    ? 'border border-[#8fa824] bg-accent text-accent-contrast shadow-sm'
+                    : 'border border-[#8fa824] bg-surface-raised text-ink'
                   : 'glass-btn-quiet'
               }`}
             >
-              {label}
+              {tab.label}
             </button>
           ))}
-          {ideMode && (
-            <button
-              onClick={() => setView('visual')}
-              title="Visual preview"
-              className={`rounded-lg px-2 py-1.5 font-heading text-[10px] font-semibold transition-all ${
-                view === 'visual'
-                  ? 'border border-[#8fa824] bg-surface-raised text-ink'
-                  : 'glass-btn-quiet'
-              }`}
-            >
-              Preview
-            </button>
-          )}
         </div>
       </header>
 
-      {/* Android's live preview stays MOUNTED across tab switches — hidden with
-          CSS rather than unmounted — so the DartPad iframe never cold-reloads.
-          Switching to Code/Simulator and back is now instant. */}
+      {/* Live previews stay MOUNTED across tab switches — hidden with CSS rather
+          than unmounted — so DartPad never cold-reloads and SwiftUI re-parses
+          the latest edited source while you're still on the Code tab. */}
       {panel.platform === 'android' && (
         <div
           className={
@@ -230,16 +211,8 @@ export default function ScreenPanel({
           }
         >
           <FlutterPreview
-            // Keyed on the file being viewed: switching screens/files forces a
-            // clean remount (fresh iframe, fresh compile) so the compiled
-            // output can never lag behind the Code tab of a *different* file.
-            // Editing/rescanning the SAME file keeps the iframe warm (no key
-            // change) and reposts the new source in place instead.
             key={panel.fileName}
-            // Prefer the engine's previewCode — theme already inlined, assets
-            // already swapped (robustly) and compile-checked. Falls back to the
-            // raw file for flows that don't provide it (e.g. pasted/analyze).
-            code={panel.previewCode ?? panel.code}
+            code={previewSource}
             device="Pixel 7"
             rulebook={rulebook}
             themeCode={panel.themeCode}
@@ -247,19 +220,26 @@ export default function ScreenPanel({
         </div>
       )}
 
+      {panel.platform === 'ios' && (
+        <div
+          className={
+            view === 'visual'
+              ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
+              : 'hidden'
+          }
+        >
+          <SwiftPreview
+            code={previewSource}
+            themeCode={panel.themeCode}
+            rulebook={rulebook}
+            activeInconsistency={activeInconsistency}
+          />
+        </div>
+      )}
+
       {view === 'visual' ? (
-        // Android's visual is the always-mounted FlutterPreview above; only the
-        // iOS visual renders inline here.
-        panel.platform === 'android' ? null : (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <SwiftPreview
-              code={panel.code}
-              themeCode={panel.themeCode}
-              rulebook={rulebook}
-              activeInconsistency={activeInconsistency}
-            />
-          </div>
-        )
+        // Previews render in the always-mounted blocks above.
+        null
       ) : view === 'simulator' ? (
         <SimulatorPreview platform={panel.platform} />
       ) : editable ? (
