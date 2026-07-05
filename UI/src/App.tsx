@@ -65,6 +65,11 @@ export default function App() {
   const [rescanNonce, setRescanNonce] = useState(0)
   const [rescanning, setRescanning] = useState(false)
   const [transferring, setTransferring] = useState(false)
+  // Transfer outcome shown as a dismissible banner — a transfer can fail with a
+  // 200 OK (the error rides in result.transfer), so we surface it explicitly.
+  const [transferMsg, setTransferMsg] = useState<
+    { kind: 'error' | 'success'; text: string } | null
+  >(null)
   // null = not yet checked; false = engine unreachable (mock/sample data shown)
   const [engineLive, setEngineLive] = useState<boolean | null>(null)
 
@@ -144,14 +149,40 @@ export default function App() {
   const onTransfer = async () => {
     if (transferring) return
     setTransferring(true)
+    setTransferMsg(null)
     try {
-      const result = await transferDesign(screenName)
-      if (result) {
-        setEngineLive(true)
-        applyComparison(result)
-      } else {
+      const result = await transferDesign(screenName, iosCode)
+      if (!result) {
+        // engine unreachable, or the request errored before a JSON reply
+        setTransferMsg({
+          kind: 'error',
+          text: 'Engine unreachable — the transfer did not run.',
+        })
         await refreshFromEngine() // sets the offline badge if truly down
+        return
       }
+      setEngineLive(true)
+      const t = result.transfer
+      if (t && !t.ok) {
+        // A 200 OK can still carry a failed transfer (e.g. an unmapped screen,
+        // or a verification failure) — surface it instead of doing nothing.
+        // Leave the panels untouched; nothing landed on disk.
+        const unmapped = /no (iOS|Flutter) screen file mapped/i.test(t.error ?? '')
+        setTransferMsg({
+          kind: 'error',
+          text: unmapped
+            ? `"${screenName}" isn't a transferable screen — it has no files on disk. Reload to switch to a mapped screen like "login", then edit and transfer there.`
+            : `Transfer failed: ${t.error ?? 'unknown error'}`,
+        })
+        return
+      }
+      if (t?.ok) {
+        setTransferMsg({
+          kind: 'success',
+          text: t.summary || `Transferred to ${t.files_written.join(', ')}`,
+        })
+      }
+      applyComparison(result)
     } finally {
       setTransferring(false)
       setRescanNonce((n) => n + 1) // remount DartPad so it compiles the new screen
@@ -226,12 +257,33 @@ export default function App() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pr-4 pb-4 pt-2">
         {page === 'comparison' ? (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {transferMsg && (
+              <div
+                role="status"
+                className={`mb-2 flex items-start justify-between gap-3 rounded-xl px-4 py-2.5 font-heading text-[12px] ${
+                  transferMsg.kind === 'error'
+                    ? 'bg-severity-error/10 text-severity-error ring-1 ring-severity-error/30'
+                    : 'bg-accent/10 text-accent ring-1 ring-accent/30'
+                }`}
+              >
+                <span className="font-medium leading-snug">{transferMsg.text}</span>
+                <button
+                  onClick={() => setTransferMsg(null)}
+                  className="shrink-0 opacity-60 transition-opacity hover:opacity-100"
+                  aria-label="Dismiss"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
             <PipelineStrip />
             <Group orientation="horizontal" className="min-h-0 flex-1">
             <Panel defaultSize="34%" minSize="18%" className="!overflow-visible">
               <ScreenPanel
                 panel={iosPanel}
                 title="iOS"
+                editable
+                onCodeChange={setIosCode}
                 rulebook={rulebook}
                 flaggedLines={flaggedLines(items, 'ios')}
                 activeLine={active?.ios.line ?? null}

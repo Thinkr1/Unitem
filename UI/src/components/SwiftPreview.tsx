@@ -158,6 +158,10 @@ function NodeView({ node, theme, activeLine, ringColor }: NodeViewProps) {
             display: 'flex',
             flexDirection: 'row',
             alignItems: 'center',
+            // A plain HStack hugs its content and is centered by the parent
+            // VStack (SwiftUI default). A Spacer child renders as flex:1 and
+            // eats the free space, so this stays a no-op for edge-pushed rows.
+            justifyContent: 'center',
             gap: stackSpacing(node, theme) * S,
             width: '100%',
             ...boxStyle(style),

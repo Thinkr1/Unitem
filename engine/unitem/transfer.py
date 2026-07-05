@@ -154,11 +154,18 @@ def _rel(cfg: Config, path: Optional[Path]) -> str:
 # ── prompt building ──────────────────────────────────────────────────────────
 
 
-def build_reader_prompt(cfg: Config, files: dict[str, Optional[Path]]) -> str:
+def build_reader_prompt(
+    cfg: Config,
+    files: dict[str, Optional[Path]],
+    ios_code: str | None = None,
+    ios_theme_code: str | None = None,
+) -> str:
     template = _READER_TEMPLATE.read_text(encoding="utf-8")
+    ios_screen = ios_code if ios_code is not None else _read(files["ios_screen"])
+    ios_theme = ios_theme_code if ios_theme_code is not None else _read(files["ios_theme"])
     return (
-        template.replace("{ios_screen_code}", _read(files["ios_screen"]))
-        .replace("{ios_theme_code}", _read(files["ios_theme"]))
+        template.replace("{ios_screen_code}", ios_screen)
+        .replace("{ios_theme_code}", ios_theme)
         .replace("{tokens_json}", _read(cfg.tokens_file))
         .replace("{agent_md}", cfg.read_agent_md() or "(no project spec provided)")
     )
@@ -169,6 +176,7 @@ def build_writer_prompt(
     spec: DesignSpec,
     files: dict[str, Optional[Path]],
     failures: list[str],
+    ios_code: str | None = None,
 ) -> str:
     template = _WRITER_TEMPLATE.read_text(encoding="utf-8")
     failure_block = ""
@@ -177,11 +185,12 @@ def build_writer_prompt(
             "## Your previous output failed verification — fix ALL of these:\n\n"
             + "\n".join(f"- {f}" for f in failures)
         )
-    ios_copy = extract_ios_copy(_read(files["ios_screen"]))
+    ios_screen = ios_code if ios_code is not None else _read(files["ios_screen"])
+    ios_copy = extract_ios_copy(ios_screen)
     ios_copy_block = "\n".join(f'- "{s}"' for s in ios_copy) or "(none found)"
     return (
         template.replace("{design_spec}", spec.model_dump_json(indent=2))
-        .replace("{ios_screen_code}", _read(files["ios_screen"]))
+        .replace("{ios_screen_code}", ios_screen)
         .replace("{ios_copy}", ios_copy_block)
         .replace("{flutter_screen_path}", _rel(cfg, files["flutter_screen"]))
         .replace("{flutter_screen_code}", _read(files["flutter_screen"]))
@@ -208,6 +217,7 @@ def verify_output(
     spec: DesignSpec,
     output: TransferOutput,
     files: dict[str, Optional[Path]],
+    ios_code: str | None = None,
 ) -> tuple[list[str], list[str]]:
     """Return (hard failures, soft failures). Hard failures block writing."""
     hard: list[str] = []
@@ -267,7 +277,8 @@ def verify_output(
     # Every visible iOS string must appear verbatim in the generated screen;
     # a miss feeds the repair round. Exact substring (quote-agnostic) so
     # "exact change" means exact.
-    for literal in extract_ios_copy(_read(files["ios_screen"])):
+    ios_screen_code = ios_code if ios_code is not None else _read(files["ios_screen"])
+    for literal in extract_ios_copy(ios_screen_code):
         if literal not in combined:
             soft.append(
                 f'iOS copy "{literal}" is missing from the generated screen — '
@@ -375,6 +386,8 @@ def run_transfer(
     screen: str | None = None,
     on_stage: OnStage | None = None,
     record_dir: Path | None = None,
+    ios_source: str | None = None,
+    ios_theme_source: str | None = None,
 ) -> TransferResult:
     screen = screen or cfg.screen
     stage = on_stage or (lambda s, d: None)
@@ -387,10 +400,18 @@ def run_transfer(
     if files["flutter_screen"] is None:
         return TransferResult(ok=False, error=f"no Flutter screen file mapped for '{screen}'")
 
+    # iOS is the source of truth. When the console sends edited iOS code, that
+    # in-memory string is authoritative — the disk file is never read or written,
+    # so the transfer reflects the user's edits without mutating their iOS source.
+    ios_code = ios_source if ios_source is not None else _read(files["ios_screen"])
+    ios_theme_code = (
+        ios_theme_source if ios_theme_source is not None else _read(files["ios_theme"])
+    )
+
     stage("discover", "reader agent distilling the iOS design spec")
     try:
         spec = run_json(
-            runner, build_reader_prompt(cfg, files), DesignSpec,
+            runner, build_reader_prompt(cfg, files, ios_code, ios_theme_code), DesignSpec,
             key="transfer-reader", timeout_s=timeout,
         )
     except RunnerError as err:
@@ -412,13 +433,13 @@ def run_transfer(
         stage("fix", detail)
         try:
             output = run_json(
-                runner, build_writer_prompt(cfg, spec, files, failures), TransferOutput,
+                runner, build_writer_prompt(cfg, spec, files, failures, ios_code), TransferOutput,
                 key="transfer-writer", timeout_s=timeout,
             )
         except RunnerError as err:
             return TransferResult(ok=False, error=f"writer agent failed: {err}", attempts=attempts)
         stage("review", "verifying the transferred design against the spec")
-        hard, soft = verify_output(cfg, spec, output, files)
+        hard, soft = verify_output(cfg, spec, output, files, ios_code)
         # render-readiness: compile the exact preview source through DartPad's
         # compiler so the writer's code is proven renderable before it lands.
         # (skipped under the mock runner to keep offline replay hermetic)

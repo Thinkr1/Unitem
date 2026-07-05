@@ -19,6 +19,10 @@ interface ScreenPanelProps {
   pulse: LinePulse | null
   activeInconsistency: Inconsistency | null
   inconsistencies: Inconsistency[]
+  /** When true, the Code tab becomes an editable textarea (used for the iOS
+   *  panel). Edits flow up via onCodeChange and are transferred as-is. */
+  editable?: boolean
+  onCodeChange?: (code: string) => void
 }
 
 const FLAG_CLASS: Record<Severity, string> = {
@@ -36,6 +40,8 @@ export default function ScreenPanel({
   pulse,
   activeInconsistency,
   inconsistencies: _inconsistencies,
+  editable = false,
+  onCodeChange,
 }: ScreenPanelProps) {
   const [view, setView] = useState<'visual' | 'simulator' | 'code'>('visual')
   const lines = useMemo(() => panel.code.split('\n'), [panel.code])
@@ -96,7 +102,10 @@ export default function ScreenPanel({
       {view === 'visual' ? (
         panel.platform === 'android' ? (
           <FlutterPreview
-            code={panel.code}
+            // Prefer the engine's previewCode — theme already inlined, assets
+            // already swapped (robustly) and compile-checked. Falls back to the
+            // raw file for flows that don't provide it (e.g. pasted/analyze).
+            code={panel.previewCode ?? panel.code}
             device="Pixel 7"
             rulebook={rulebook}
             themeCode={panel.themeCode}
@@ -111,6 +120,15 @@ export default function ScreenPanel({
         )
       ) : view === 'simulator' ? (
         <SimulatorPreview platform={panel.platform} />
+      ) : editable ? (
+        <textarea
+          value={panel.code}
+          onChange={(e) => onCodeChange?.(e.target.value)}
+          spellCheck={false}
+          autoCapitalize="off"
+          autoCorrect="off"
+          className="min-h-0 flex-1 resize-none overflow-auto bg-transparent px-4 py-2 font-mono text-[12px] leading-[1.7] text-code caret-accent outline-none"
+        />
       ) : (
         <div className="min-h-0 flex-1 overflow-auto py-2">
           <div className="min-w-max font-mono text-[12px] leading-[1.7]">

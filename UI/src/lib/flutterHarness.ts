@@ -65,8 +65,13 @@ function stripFlutterPackageImports(code: string): string {
 
 /** DartPad has no asset bundle — swap Image.asset for a gradient tile placeholder.
  *  Preserves width/height from the source call so the preview matches the Code tab layout. */
-const IMAGE_ASSET_RE =
-  /(?:const\s+)?Image\.asset\(\s*'[^']*'(?:\s*,\s*width:\s*([\d.]+))?(?:\s*,\s*height:\s*([\d.]+))?\s*\)/g
+// Match Image.asset(...) with ANY arguments — theme-constant sizes
+// (AppTheme.logoSize), a trailing fit:, multi-line calls, etc. — mirroring the
+// backend's permissive swap. `[^)]*` stops at the first ')', which is fine for a
+// bare asset call (no nested parens). A stricter regex silently misses calls the
+// writer agent generates, leaving Image.asset in the code → DartPad throws
+// "Unable to load asset" since it has no asset bundle.
+const IMAGE_ASSET_RE = /(?:const\s+)?Image\.asset\([^)]*\)/g
 
 function logoPlaceholder(width = 96, height = 96): string {
   const icon = Math.round(Math.min(width, height) * 0.45)
@@ -80,9 +85,14 @@ function logoPlaceholder(width = 96, height = 96): string {
 }
 
 export function swapImageAssetsForPreview(code: string): string {
-  return code.replace(IMAGE_ASSET_RE, (_match, w, h) => {
-    const width = w ? Number(w) : h ? Number(h) : 96
-    const height = h ? Number(h) : w ? Number(w) : 96
+  return code.replace(IMAGE_ASSET_RE, (match) => {
+    // Preserve size only when width/height are numeric literals; a theme
+    // constant (AppTheme.logoSize) isn't resolvable here, so fall back to the
+    // 96×96 tile — the same stand-in the iOS SwiftPreview draws.
+    const w = match.match(/width:\s*([\d.]+)/)
+    const h = match.match(/height:\s*([\d.]+)/)
+    const width = w ? Number(w[1]) : h ? Number(h[1]) : 96
+    const height = h ? Number(h[1]) : w ? Number(w[1]) : 96
     return logoPlaceholder(width, height)
   })
 }

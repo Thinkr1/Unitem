@@ -36,6 +36,13 @@ class AnalyzeBody(BaseModel):
     screen: str = "pasted"
 
 
+class TransferBody(BaseModel):
+    # Edited iOS source from the console, used in place of the on-disk file.
+    # Both optional: an empty POST transfers the on-disk iOS design as before.
+    iosCode: Optional[str] = None
+    iosThemeCode: Optional[str] = None
+
+
 class Progress:
     """Live pipeline stage, polled by the UI's pipeline strip (GET /progress)."""
 
@@ -391,16 +398,24 @@ def create_app(cfg: Config) -> FastAPI:
             progress.idle()
 
     @app.post("/transfer")
-    def transfer(screen: str = "login") -> dict:
+    def transfer(screen: str = "login", body: Optional[TransferBody] = None) -> dict:
         """Whole-screen design transfer: iOS is the source of truth; the writer
-        agent regenerates the Flutter screen + theme, verified before landing."""
+        agent regenerates the Flutter screen + theme, verified before landing.
+
+        The console may send edited iOS code in the body; that in-memory string
+        is used as the source (the iOS file on disk is never touched), so manual
+        edits transfer without a persist step."""
         from .runner import get_runner
         from .transfer import run_transfer
 
+        ios_source = body.iosCode if body else None
+        ios_theme_source = body.iosThemeCode if body else None
         try:
             runner = get_runner(cfg)
             result = run_transfer(
                 cfg, runner, screen=screen,
+                ios_source=ios_source,
+                ios_theme_source=ios_theme_source,
                 on_stage=lambda stg, detail: progress.set(stg, detail),
                 record_dir=cfg.out_dir / "transfer",
             )
@@ -419,6 +434,11 @@ def create_app(cfg: Config) -> FastAPI:
                 progress.event(f"transfer failed: {result.error}")
             payload = comparison(screen)
             payload["transfer"] = result.model_dump()
+            # comparison() re-reads the pristine iOS file from disk, so echo the
+            # edited code back — otherwise the console would revert to the disk
+            # version after a transfer that used the user's in-memory edits.
+            if ios_source is not None:
+                payload["ios"]["code"] = ios_source
             return payload
         finally:
             progress.idle()

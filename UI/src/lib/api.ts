@@ -30,9 +30,22 @@ export function rescan(screen = 'login'): Promise<ComparisonResult | null> {
 
 /** Whole-screen design transfer: the engine's writer agent regenerates the
  *  Flutter screen + theme from the iOS design (verified before landing).
- *  Expect a couple of minutes with the live runner. */
-export function transferDesign(screen = 'login'): Promise<ComparisonResult | null> {
-  return request<ComparisonResult>(`/transfer?screen=${screen}`, { method: 'POST' })
+ *  Expect a couple of minutes with the live runner.
+ *
+ *  When `iosCode` is passed (the console's edited iOS source), it's sent in the
+ *  body and used as the source of truth — the iOS file on disk is never read or
+ *  written, so edits transfer without persisting. */
+export function transferDesign(
+  screen = 'login',
+  iosCode?: string,
+  iosThemeCode?: string,
+): Promise<ComparisonResult | null> {
+  const init: RequestInit = { method: 'POST' }
+  if (iosCode !== undefined || iosThemeCode !== undefined) {
+    init.headers = { 'content-type': 'application/json' }
+    init.body = JSON.stringify({ iosCode, iosThemeCode })
+  }
+  return request<ComparisonResult>(`/transfer?screen=${screen}`, init)
 }
 
 /** DEV ONLY: restore the pre-transfer (legacy) Android files and reopen the
