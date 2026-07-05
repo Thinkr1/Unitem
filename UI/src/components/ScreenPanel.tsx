@@ -107,6 +107,12 @@ export default function ScreenPanel({
           }
         >
           <FlutterPreview
+            // Keyed on the file being viewed: switching screens/files forces a
+            // clean remount (fresh iframe, fresh compile) so the compiled
+            // output can never lag behind the Code tab of a *different* file.
+            // Editing/rescanning the SAME file keeps the iframe warm (no key
+            // change) and reposts the new source in place instead.
+            key={panel.fileName}
             // Prefer the engine's previewCode — theme already inlined, assets
             // already swapped (robustly) and compile-checked. Falls back to the
             // raw file for flows that don't provide it (e.g. pasted/analyze).
