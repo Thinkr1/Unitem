@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const path = require('node:path')
 const deviceBridge = require('./deviceBridge.cjs')
+const fileEditor = require('./fileEditor.cjs')
 
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL ?? 'http://127.0.0.1:5173'
 
@@ -62,8 +63,33 @@ function registerDeviceBridgeHandlers() {
   })
 }
 
+// ── File editor IPC — see electron/fileEditor.cjs ───────────────────────────
+// Real filesystem read/write/open-in-editor/watch for the "your own codebase"
+// flow, so edits made in the console (or in an external editor) persist to
+// disk instead of only living in memory for the session.
+
+function registerFileEditorHandlers() {
+  ipcMain.handle('editor:read-folder', (_e, rootDir, extensions) => fileEditor.readFolder(rootDir, extensions))
+  ipcMain.handle('editor:read-file', (_e, filePath) => fileEditor.readFile(filePath))
+  ipcMain.handle('editor:write-file', (_e, filePath, content) => fileEditor.writeFile(filePath, content))
+  ipcMain.handle('editor:open-in-editor', (_e, filePath) => fileEditor.openInEditor(filePath))
+
+  ipcMain.handle('editor:watch-file', (event, filePath) => {
+    fileEditor.watchFile(filePath, (content) => {
+      if (event.sender.isDestroyed()) return
+      event.sender.send('editor:file-changed', { path: filePath, content })
+    })
+    return { watching: true }
+  })
+  ipcMain.handle('editor:unwatch-file', (_e, filePath) => {
+    fileEditor.unwatchFile(filePath)
+    return { watching: false }
+  })
+}
+
 app.whenReady().then(() => {
   registerDeviceBridgeHandlers()
+  registerFileEditorHandlers()
   const win = createWindow()
   win.maximize()
 

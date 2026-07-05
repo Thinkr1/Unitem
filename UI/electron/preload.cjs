@@ -31,3 +31,19 @@ contextBridge.exposeInMainWorld('deviceBridge', {
   },
   pickFile: invoke('device:pick-file'),
 })
+
+contextBridge.exposeInMainWorld('fileEditor', {
+  readFolder: invoke('editor:read-folder'),
+  readFile: invoke('editor:read-file'),
+  writeFile: invoke('editor:write-file'),
+  openInEditor: invoke('editor:open-in-editor'),
+  watchFile: invoke('editor:watch-file'),
+  unwatchFile: invoke('editor:unwatch-file'),
+  /** Subscribe to external changes (e.g. a save from VS Code) on any watched
+   *  file. Returns an unsubscribe function. */
+  onFileChanged: (callback) => {
+    const handler = (_event, payload) => callback(payload)
+    ipcRenderer.on('editor:file-changed', handler)
+    return () => ipcRenderer.removeListener('editor:file-changed', handler)
+  },
+})

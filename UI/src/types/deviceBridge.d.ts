@@ -52,8 +52,30 @@ export interface DeviceBridge {
   pickFile(options?: PickFileOptions): Promise<string | null>
 }
 
+// ── File editor — see electron/fileEditor.cjs / preload.cjs ────────────────
+
+export interface EditorFile {
+  name: string
+  /** Real absolute path on disk — only present inside the Electron shell. */
+  path: string
+  relativePath: string
+  content: string
+}
+
+export interface FileEditorBridge {
+  readFolder(rootDir: string, extensions: string[]): Promise<EditorFile[]>
+  readFile(filePath: string): Promise<string>
+  writeFile(filePath: string, content: string): Promise<{ path: string }>
+  openInEditor(filePath: string): Promise<{ opened: boolean; via: 'code' | 'system' }>
+  watchFile(filePath: string): Promise<{ watching: boolean }>
+  unwatchFile(filePath: string): Promise<{ watching: boolean }>
+  /** Subscribe to external changes on any watched file. Returns an unsubscribe function. */
+  onFileChanged(callback: (payload: { path: string; content: string }) => void): () => void
+}
+
 declare global {
   interface Window {
     deviceBridge?: DeviceBridge
+    fileEditor?: FileEditorBridge
   }
 }
