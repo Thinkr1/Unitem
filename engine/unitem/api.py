@@ -275,8 +275,12 @@ def _theme_file(cfg: Config, platform: str, suffix: str) -> Path | None:
 
 def _flatten_dart_for_preview(code: str, screen_path: Path) -> str | None:
     """DartPad is a single-file sandbox: inline local imports (theme.dart) so
-    the real screen actually compiles and renders in the preview."""
-    local_imports = re.findall(r"import\s+'(?!package:)([^']+)';", code)
+    the real screen actually compiles and renders in the preview.
+
+    Only relative `.dart` files are local; `dart:` SDK libraries (e.g.
+    `dart:ui`, needed for glass ImageFilter) are NOT files to inline and must
+    survive into the flattened source — hence the `dart:` exclusion below."""
+    local_imports = re.findall(r"import\s+'(?!package:|dart:)([^']+)';", code)
     if not local_imports:
         return None
     inlined_parts = []
@@ -286,7 +290,7 @@ def _flatten_dart_for_preview(code: str, screen_path: Path) -> str | None:
             return None
         dep_code = re.sub(r"import\s+'package:flutter/[^']+';\n?", "", dep.read_text(encoding="utf-8"))
         inlined_parts.append(dep_code.strip())
-    flattened = re.sub(r"import\s+'(?!package:)[^']+';\n?", "", code)
+    flattened = re.sub(r"import\s+'(?!package:|dart:)[^']+';\n?", "", code)
     # DartPad has no asset bundle — swap asset images for the same placeholder
     # tile the iOS preview draws, so both panels show an identical stand-in.
     from .transfer import _IMAGE_ASSET_RE, LOGO_PLACEHOLDER_DART
@@ -320,6 +324,27 @@ def create_app(cfg: Config) -> FastAPI:
     @app.get("/progress")
     def get_progress() -> dict:
         return progress.snapshot()
+
+    @app.get("/screens")
+    def screens() -> dict:
+        """The screens the mapper found, so the console can offer a switcher.
+        Both-sided screens are transferable; one-sided ones are shown but flagged."""
+        from .discovery import discover
+        from .mapping import build_mapping
+
+        facts = discover(cfg)
+        mapping = build_mapping(cfg, facts["ios"], facts["android"])
+        return {
+            "screens": [
+                {
+                    "feature": s.feature,
+                    "hasIos": bool(s.ios),
+                    "hasAndroid": bool(s.android),
+                    "oneSided": bool(s.one_sided),
+                }
+                for s in mapping.screens
+            ]
+        }
 
     @app.get("/comparison")
     def comparison(screen: str = "login") -> dict:

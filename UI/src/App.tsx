@@ -6,12 +6,15 @@ import {
   acceptFinding,
   analyzePair,
   fetchComparison,
+  fetchScreens,
   overrideFinding,
   rescan,
   resetAndroid,
   transferDesign,
+  type ScreenInfo,
 } from './lib/api'
 import ScreenPanel, { type LinePulse } from './components/ScreenPanel'
+import ScreenSwitcher from './components/ScreenSwitcher'
 import InconsistenciesPanel, {
   type Filter,
 } from './components/InconsistenciesPanel'
@@ -55,6 +58,8 @@ export default function App() {
   const [view, setView] = useState<'paste' | 'dashboard'>('paste')
   const [page, setPage] = useState<NavPage>('comparison')
   const [screenName, setScreenName] = useState('login')
+  const [screens, setScreens] = useState<ScreenInfo[]>([])
+  const [switching, setSwitching] = useState(false)
   const [rulebook, setRulebook] = useState<Record<string, string>>(
     mockComparison.rulebook,
   )
@@ -108,7 +113,26 @@ export default function App() {
         setView('dashboard') // engine has judged tickets — go straight to review
       }
     })
+    fetchScreens().then((result) => {
+      if (result) setScreens(result.screens)
+    })
   }, [])
+
+  // Switch the visible screen pair (e.g. login ↔ glasslogin). Clears any active
+  // finding highlight, whose line numbers belong to the previous screen.
+  const onScreenChange = async (next: string) => {
+    if (next === screenName || switching) return
+    setSwitching(true)
+    setScreenName(next)
+    setTransferMsg(null)
+    setActiveId(null)
+    setIosPulse(null)
+    setAndroidPulse(null)
+    const result = await fetchComparison(next)
+    setEngineLive(result !== null)
+    if (result) applyComparison(result)
+    setSwitching(false)
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -295,6 +319,16 @@ export default function App() {
                 >
                   ✕
                 </button>
+              </div>
+            )}
+            {screens.length > 1 && (
+              <div className="mb-2 flex items-center justify-end">
+                <ScreenSwitcher
+                  screens={screens}
+                  value={screenName}
+                  onChange={onScreenChange}
+                  busy={switching}
+                />
               </div>
             )}
             <PipelineStrip />

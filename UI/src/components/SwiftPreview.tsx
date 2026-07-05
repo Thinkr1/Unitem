@@ -5,6 +5,7 @@ import { DeviceCanvas, IPhoneFrame } from './PhoneChrome'
 import {
   buildSwiftTheme,
   firstStringArg,
+  linearGradientCss,
   parseSwiftUI,
   resolveStyle,
   stackAlignment,
@@ -20,6 +21,10 @@ import type { ResolvedStyle, SwiftNode, SwiftTheme } from '../lib/swiftRender'
 
 // The 252px-wide frame stands in for a ~375pt iPhone: scale points → px.
 const S = 252 / 375
+
+// Views that fill their ZStack layer edge-to-edge (backgrounds), rather than
+// sitting centered like content.
+const FILL_VIEWS = new Set(['LinearGradient', 'RadialGradient', 'AngularGradient', 'Rectangle', 'Color'])
 
 const SEVERITY_RING: Record<string, string> = {
   error: '#f87171',
@@ -54,7 +59,7 @@ export default function SwiftPreview({
       <IPhoneFrame>
         <div
           className="flex min-h-0 flex-1 flex-col justify-center overflow-hidden"
-          style={{ background: '#ffffff' }}
+          style={{ background: '#ffffff', color: '#1A1A1A' }}
         >
           {tree.length > 0 ? (
             tree.map((node, i) => (
@@ -100,6 +105,17 @@ function boxStyle(style: ResolvedStyle): CSSProperties {
       css.borderRadius = style.border.radius * S
     }
   }
+  if (style.blur) css.filter = `blur(${style.blur * S}px)`
+  // Liquid Glass: frosted backdrop + translucent fill + specular hairline. The
+  // backdrop-filter samples whatever the ZStack painted behind this element.
+  if (style.glass) {
+    const bf = `blur(${Math.max(6, style.glass.blur * S)}px) saturate(160%)`
+    css.backdropFilter = bf
+    ;(css as CSSProperties & { WebkitBackdropFilter?: string }).WebkitBackdropFilter = bf
+    css.background = style.glass.tint ?? 'rgba(255,255,255,0.14)'
+    css.border = '1px solid rgba(255,255,255,0.22)'
+    css.borderRadius = style.glass.radius >= 999 ? 9999 : style.glass.radius * S
+  }
   return css
 }
 
@@ -107,7 +123,7 @@ function textStyle(style: ResolvedStyle): CSSProperties {
   const css: CSSProperties = {
     fontSize: (style.fontSize ?? 17) * S,
     fontWeight: style.fontWeight ?? 400,
-    color: style.foreground ?? '#1A1A1A',
+    color: style.foreground ?? 'inherit',
     lineHeight: 1.25,
   }
   if (style.fontFamily) css.fontFamily = `'${style.fontFamily}', sans-serif`
@@ -171,14 +187,90 @@ function NodeView({ node, theme, activeLine, ringColor }: NodeViewProps) {
       )
     }
     case 'ZStack': {
+      // Layer children absolutely: fill-views (gradient) stretch to the edges,
+      // .offset children are placed relative to center, everything else centers.
+      // This is the full-screen background + centered content pattern.
       return (
-        <div style={{ display: 'grid', ...boxStyle(style), ...highlight }}>
-          {node.children.map((child, i) => (
-            <div key={i} style={{ gridArea: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <NodeView node={child} theme={theme} activeLine={activeLine} ringColor={ringColor} />
-            </div>
-          ))}
+        <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            flex: '1 1 auto',
+            minHeight: 0,
+            overflow: 'hidden',
+            ...boxStyle(style),
+            ...highlight,
+          }}
+        >
+          {node.children.map((child, i) => {
+            const cs = resolveStyle(child, theme)
+            const fill = FILL_VIEWS.has(child.kind)
+            const offset = cs.offsetX !== undefined || cs.offsetY !== undefined
+            const wrap: CSSProperties = fill
+              ? { position: 'absolute', inset: 0 }
+              : offset
+                ? {
+                    position: 'absolute',
+                    left: '50%',
+                    top: '50%',
+                    transform: `translate(-50%, -50%) translate(${(cs.offsetX ?? 0) * S}px, ${(cs.offsetY ?? 0) * S}px)`,
+                  }
+                : {
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }
+            return (
+              <div key={i} style={wrap}>
+                <NodeView node={child} theme={theme} activeLine={activeLine} ringColor={ringColor} />
+              </div>
+            )
+          })}
         </div>
+      )
+    }
+    case 'LinearGradient':
+      return (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            background: linearGradientCss(node, theme),
+            ...highlight,
+          }}
+        />
+      )
+    case 'Circle':
+    case 'Ellipse': {
+      const box = boxStyle(style)
+      return (
+        <div
+          style={{
+            ...box,
+            width: (style.width ?? 40) * S,
+            height: (style.height ?? 40) * S,
+            borderRadius: '50%',
+            background: style.fill ?? box.background ?? '#8E8E93',
+            ...highlight,
+          }}
+        />
+      )
+    }
+    case 'Rectangle':
+    case 'RoundedRectangle': {
+      const box = boxStyle(style)
+      return (
+        <div
+          style={{
+            width: (style.width ?? 40) * S,
+            height: (style.height ?? 40) * S,
+            ...box,
+            background: style.fill ?? box.background ?? '#8E8E93',
+            ...highlight,
+          }}
+        />
       )
     }
     case 'ScrollView':
@@ -205,6 +297,9 @@ function NodeView({ node, theme, activeLine, ringColor }: NodeViewProps) {
     case 'SecureField': {
       const placeholder = firstStringArg(node) ?? (node.kind === 'SecureField' ? 'Password' : '')
       const height = (style.height ?? 44) * S
+      // A translucent (rgba) fill means the field sits on a dark/glass surface:
+      // switch to a light hairline border and light placeholder text.
+      const onGlass = (style.background ?? '').startsWith('rgba')
       return (
         <div
           style={{
@@ -214,12 +309,19 @@ function NodeView({ node, theme, activeLine, ringColor }: NodeViewProps) {
             height,
             padding: `0 ${10 * S}px`,
             background: style.background ?? '#FFFFFF',
-            border: '1px solid #D1D1D6',
-            borderRadius: (style.cornerRadius ?? (style.roundedBorderField ? 8 : 8)) * S,
+            border: onGlass ? '1px solid rgba(255,255,255,0.18)' : '1px solid #D1D1D6',
+            borderRadius: (style.cornerRadius ?? 8) * S,
             ...highlight,
           }}
         >
-          <span style={{ fontSize: (style.fontSize ?? 17) * S, color: '#9A9AA0' }}>{placeholder}</span>
+          <span
+            style={{
+              fontSize: (style.fontSize ?? 17) * S,
+              color: onGlass ? 'rgba(255,255,255,0.6)' : '#9A9AA0',
+            }}
+          >
+            {placeholder}
+          </span>
         </div>
       )
     }
@@ -271,10 +373,57 @@ function NodeView({ node, theme, activeLine, ringColor }: NodeViewProps) {
     }
     case 'Button': {
       const label = firstStringArg(node)
+      // .buttonStyle(.glass / .glassProminent): prominent = tinted fill, regular
+      // = translucent frosted pill. Child text inherits white.
+      const glassPill = (extra: CSSProperties): CSSProperties => {
+        const prominent = style.glassButton === 'prominent'
+        const bf = 'blur(8px) saturate(160%)'
+        return {
+          color: '#fff',
+          borderRadius: 9999,
+          background: prominent ? (style.tint ?? '#007AFF') : 'rgba(255,255,255,0.16)',
+          border: prominent ? 'none' : '1px solid rgba(255,255,255,0.28)',
+          ...(prominent
+            ? {}
+            : { backdropFilter: bf, WebkitBackdropFilter: bf } as CSSProperties),
+          ...extra,
+        }
+      }
       if (node.children.length > 0) {
         // Button(action:) { styled content } — content carries the styling
+        if (style.glassButton) {
+          return (
+            <div
+              style={glassPill({
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                ...boxStyle(style),
+                ...highlight,
+              })}
+            >
+              {children()}
+            </div>
+          )
+        }
         return (
           <div style={{ width: '100%', ...boxStyle(style), ...highlight }}>{children()}</div>
+        )
+      }
+      if (style.glassButton) {
+        return (
+          <span
+            style={glassPill({
+              ...textStyle({ ...style, fontSize: style.fontSize ?? 15 }),
+              display: 'inline-block',
+              textAlign: 'center',
+              padding: `${7 * S}px ${16 * S}px`,
+              ...highlight,
+            })}
+          >
+            {label ?? 'Button'}
+          </span>
         )
       }
       return (

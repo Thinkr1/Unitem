@@ -87,6 +87,60 @@ export function resolveColor(expr: string | undefined, theme: SwiftTheme): strin
   return undefined
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  if (hex === 'transparent') return 'transparent'
+  const h = hex.replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+/** Like resolveColor, but honors a trailing `.opacity(x)` and returns rgba().
+ *  Handles `Color(hex: "#..").opacity(.5)`, `Color.white.opacity(.14)`, etc. */
+export function resolveColorAlpha(
+  expr: string | undefined,
+  theme: SwiftTheme,
+): string | undefined {
+  if (!expr) return undefined
+  const e = expr.trim()
+  const op = e.match(/\.opacity\(\s*([\d.]+)\s*\)\s*$/)
+  const base = op ? e.slice(0, op.index).trim() : e
+  const hex = resolveColor(base, theme)
+  if (!hex) return undefined
+  return op ? hexToRgba(hex, Number(op[1])) : hex
+}
+
+/** SwiftUI unit-point pair → CSS linear-gradient direction. */
+function gradientDirection(start?: string, end?: string): string {
+  const s = (start ?? '').replace(/^\./, '')
+  const t = (end ?? '').replace(/^\./, '')
+  const map: Record<string, string> = {
+    'topLeading->bottomTrailing': '135deg',
+    'topTrailing->bottomLeading': '225deg',
+    'bottomLeading->topTrailing': '45deg',
+    'bottomTrailing->topLeading': '315deg',
+    'top->bottom': '180deg',
+    'bottom->top': '0deg',
+    'leading->trailing': '90deg',
+    'trailing->leading': '270deg',
+  }
+  return map[`${s}->${t}`] ?? '135deg'
+}
+
+/** Build the CSS `linear-gradient(...)` for a LinearGradient node. */
+export function linearGradientCss(node: SwiftNode, theme: SwiftTheme): string {
+  const colorsRaw = node.args.find((a) => a.label === 'colors')?.value ?? ''
+  const inner = colorsRaw.replace(/^\[/, '').replace(/\]$/, '')
+  const stops = splitTopLevel(inner)
+    .map((c) => resolveColorAlpha(c, theme))
+    .filter((c): c is string => Boolean(c))
+  const start = node.args.find((a) => a.label === 'startPoint')?.value
+  const end = node.args.find((a) => a.label === 'endPoint')?.value
+  if (stops.length === 0) return 'transparent'
+  return `linear-gradient(${gradientDirection(start, end)}, ${stops.join(', ')})`
+}
+
 export function resolveNumber(expr: string | undefined, theme: SwiftTheme): number | undefined {
   if (!expr) return undefined
   const e = expr.trim()
@@ -202,10 +256,12 @@ function parseArgs(argsSrc: string): SwiftArg[] {
 const CONTROL_KEYWORDS = new Set(['if', 'else', 'guard', 'switch', 'for', 'while', 'ForEach', 'Group'])
 
 class Parser {
-  constructor(
-    private src: string,
-    private lineStarts: number[],
-  ) {}
+  private src: string
+  private lineStarts: number[]
+  constructor(src: string, lineStarts: number[]) {
+    this.src = src
+    this.lineStarts = lineStarts
+  }
 
   private lineAt(index: number): number {
     let lo = 0
@@ -395,6 +451,12 @@ export interface ResolvedStyle {
   tint?: string
   textAlign?: 'left' | 'center' | 'right'
   border?: { color: string; width: number; radius?: number }
+  blur?: number // .blur(radius:) — CSS filter blur
+  offsetX?: number // .offset(x:y:) — used for ZStack layering
+  offsetY?: number
+  fill?: string // shape .fill(color) — Circle/Rectangle
+  glass?: { blur: number; radius: number; tint?: string } // .glassEffect(...)
+  glassButton?: 'regular' | 'prominent' // .buttonStyle(.glass / .glassProminent)
 }
 
 const WEIGHTS: Record<string, number> = {
@@ -482,20 +544,55 @@ export function resolveStyle(node: SwiftNode, theme: SwiftTheme): ResolvedStyle 
         break
       }
       case 'background': {
-        const color = resolveColor(positional(mod.args), theme)
+        const color = resolveColorAlpha(positional(mod.args), theme)
         if (color) style.background = color
         break
       }
       case 'foregroundColor':
       case 'foregroundStyle': {
-        const color = resolveColor(positional(mod.args), theme)
+        const color = resolveColorAlpha(positional(mod.args), theme)
         if (color) style.foreground = color
         break
       }
       case 'tint':
       case 'accentColor': {
-        const color = resolveColor(positional(mod.args), theme)
+        const color = resolveColorAlpha(positional(mod.args), theme)
         if (color) style.tint = color
+        break
+      }
+      case 'fill': {
+        const color = resolveColorAlpha(positional(mod.args), theme)
+        if (color) style.fill = color
+        break
+      }
+      case 'blur': {
+        style.blur = resolveNumber(arg(mod.args, 'radius') ?? positional(mod.args), theme)
+        break
+      }
+      case 'offset': {
+        style.offsetX = resolveNumber(arg(mod.args, 'x'), theme) ?? style.offsetX
+        style.offsetY = resolveNumber(arg(mod.args, 'y'), theme) ?? style.offsetY
+        break
+      }
+      case 'glassEffect': {
+        // .glassEffect(.regular.tint(c), in: .rect(cornerRadius: 28))
+        const variant = positional(mod.args) ?? '.regular'
+        const inShape = arg(mod.args, 'in') ?? ''
+        const rr = inShape.match(/cornerRadius:\s*([^,)]+)/)
+        const radius = /capsule/i.test(inShape)
+          ? 999
+          : rr
+            ? (resolveNumber(rr[1], theme) ?? 20)
+            : 20
+        const tintMatch = variant.match(/\.tint\(([^)]+)\)/)
+        const tint = tintMatch ? resolveColorAlpha(tintMatch[1], theme) : undefined
+        style.glass = { blur: 18, radius, tint }
+        break
+      }
+      case 'buttonStyle': {
+        const v = positional(mod.args) ?? ''
+        if (v.includes('glassProminent')) style.glassButton = 'prominent'
+        else if (v.includes('glass')) style.glassButton = 'regular'
         break
       }
       case 'cornerRadius': {

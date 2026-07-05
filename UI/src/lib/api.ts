@@ -17,6 +17,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T | null> {
   }
 }
 
+export interface ScreenInfo {
+  feature: string
+  hasIos: boolean
+  hasAndroid: boolean
+  oneSided: boolean
+}
+
+/** The screens the mapper found, for the console's screen switcher. */
+export function fetchScreens(): Promise<{ screens: ScreenInfo[] } | null> {
+  return request<{ screens: ScreenInfo[] }>('/screens')
+}
+
 /** Latest engine state for a screen (tickets from the last `unitem diff` run). */
 export function fetchComparison(screen = 'login'): Promise<ComparisonResult | null> {
   return request<ComparisonResult>(`/comparison?screen=${screen}`)

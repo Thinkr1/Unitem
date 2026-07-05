@@ -156,6 +156,11 @@ class DesignSpec(BaseModel):
     fonts: list[str] = []  # font family names in use (e.g. "SpaceGrotesk")
     layout_summary: str = ""
     elements: list[dict] = []  # ordered widget tree with exact style values
+    effects: list[dict] = []  # material effects (glass/blur) that aren't plain
+    # colors — e.g. {"element": "input card", "effect": "glass",
+    # "variant": "regular", "shape": "rect", "cornerRadius": 28, "tint": null}.
+    # A non-empty entry with effect=="glass" makes the glass recipe mandatory in
+    # the writer's output (see transfer.verify_output).
     must_haves: list[str] = []  # acceptance criteria phrased for the writer
 
 

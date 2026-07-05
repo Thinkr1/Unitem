@@ -129,13 +129,37 @@ def resolve_screen_files(cfg: Config, screen: str) -> dict[str, Optional[Path]]:
     def _first(root: Path, pattern: str) -> Optional[Path]:
         return next(iter(sorted(root.rglob(pattern))), None)
 
+    flutter_screen = _abs(found["android"])
     return {
         "ios_screen": _abs(found["ios"]),
-        "flutter_screen": _abs(found["android"]),
+        "flutter_screen": flutter_screen,
         "ios_theme": _first(cfg.ios_root, "Theme.swift"),
-        "flutter_theme": _first(cfg.android_root, "theme.dart"),
+        "flutter_theme": _flutter_theme_for(flutter_screen, cfg.android_root, _first),
         "pubspec": _first(cfg.android_root, "pubspec.yaml"),
     }
+
+
+_THEME_CLASS_RE = re.compile(r"class\s+\w*[Tt]heme\b")
+
+
+def _flutter_theme_for(
+    screen_path: Optional[Path],
+    android_root: Path,
+    first: Callable[[Path, str], Optional[Path]],
+) -> Optional[Path]:
+    """The theme file the screen ACTUALLY imports (its per-screen theme), not
+    the first theme.dart in the tree. A glass screen imports `glass_theme.dart`;
+    regenerating that leaves the baseline login screen's `theme.dart` untouched.
+    Falls back to the shared theme.dart when the screen imports no theme file."""
+    if screen_path and screen_path.is_file():
+        code = screen_path.read_text(encoding="utf-8")
+        for rel in re.findall(r"import\s+'(?!package:|dart:)([^']+\.dart)'", code):
+            cand = screen_path.parent / rel
+            if cand.is_file() and cand.name != screen_path.name and _THEME_CLASS_RE.search(
+                cand.read_text(encoding="utf-8")
+            ):
+                return cand
+    return first(android_root, "theme.dart")
 
 
 def _read(path: Optional[Path]) -> str:
@@ -238,11 +262,40 @@ def verify_output(
     if screen_rel not in paths:
         hard.append(f"missing the screen file itself ({screen_rel})")
 
+    # A transfer touches ONLY this screen and its OWN theme. Writing any other
+    # file (e.g. regenerating the shared theme.dart when this screen has its own
+    # glass_theme.dart) would clobber a sibling screen — the exact regression the
+    # per-screen theme rule exists to prevent.
+    theme_rel = _rel(cfg, files["flutter_theme"]) if files.get("flutter_theme") else None
+    allowed = {screen_rel} | ({theme_rel} if theme_rel else set())
+    for gen in output.files:
+        if gen.path not in allowed:
+            hard.append(
+                f"{gen.path} is neither this screen nor its theme ({', '.join(sorted(allowed))}) — "
+                "a transfer must not create or overwrite unrelated files"
+            )
+
     original_screen = _read(files["flutter_screen"])
     widget = _WIDGET_CLASS_RE.search(original_screen)
     combined = "\n".join(f.content for f in output.files)
     if widget and f"class {widget.group(1)}" not in combined:
         hard.append(f"public widget class {widget.group(1)} was renamed or dropped")
+
+    # Liquid Glass is a material, not a color — a hex fill can't stand in for it.
+    # If the reader flagged a glass surface (effects, or 'glass'/'frosted' in the
+    # acceptance criteria), the writer MUST emit a real BackdropFilter blur.
+    glass_wanted = any(
+        (e.get("effect") or "").lower() == "glass" for e in (spec.effects or [])
+    ) or any(
+        "glass" in m.lower() or "frost" in m.lower() for m in (spec.must_haves or [])
+    )
+    if glass_wanted and "backdropfilter" not in combined.lower():
+        hard.append(
+            "the spec calls for a Liquid Glass surface but the output has no "
+            "BackdropFilter — wrap the glass surface in ClipRRect + "
+            "BackdropFilter(filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20)) with "
+            "a translucent white fill (~12%) and a subtle white border (~18%)"
+        )
 
     for dep in output.dependencies:
         if not _DEP_NAME_RE.match(dep):
