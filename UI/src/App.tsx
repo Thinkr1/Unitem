@@ -20,7 +20,7 @@ import { type NavPage } from './components/NavRail'
 import PipelineStrip from './components/PipelineStrip'
 import PasteScreen from './components/PasteScreen'
 import LaunchScreen from './components/LaunchScreen'
-import ScreenTabs from './components/ScreenTabs'
+import FileBrowser from './components/FileBrowser'
 import OverviewPage from './components/OverviewPage'
 import AgentsPage from './components/AgentsPage'
 import RulebookPage from './components/RulebookPage'
@@ -142,29 +142,18 @@ export default function App() {
     applyScreen(screen, screenItems[screenId] ?? screen.inconsistencies)
   }
 
-  const onPasteInstead = () => {
-    setLoadedApp(null)
-    setScreenItems({})
-    setView('paste')
-  }
-
   const refreshFromEngine = async () => {
     const result = await fetchComparison(screenName)
     setEngineLive(result !== null)
     if (result) applyComparison(result)
   }
 
-  // On load, pull the engine's latest state (tickets from the last `unitem
-  // diff` run + the mapped screens' real source). Falls back to the launch
-  // screen so the user can pick a demo app or their own codebase.
+  // On load, just check whether the engine is reachable (for the nav rail's
+  // status badge) — the launch screen always shows first, regardless of
+  // whatever state the engine happens to be in.
   useEffect(() => {
     fetchComparison().then((result) => {
       setEngineLive(result !== null)
-      if (result && result.inconsistencies.length > 0) {
-        applyComparison(result)
-        setHasAnalyzed(true)
-        setView('dashboard') // engine has judged tickets — go straight to review
-      }
     })
   }, [])
 
@@ -322,16 +311,12 @@ export default function App() {
       )
     : {}
 
+  const showFileBrowser = !!loadedApp && loadedApp.screens.length > 1
+
   const onGoToLaunch = () => setView('launch')
 
   if (view === 'launch') {
-    return (
-      <LaunchScreen
-        onSelectApp={onSelectApp}
-        onPasteInstead={onPasteInstead}
-        engineLive={engineLive}
-      />
-    )
+    return <LaunchScreen onSelectApp={onSelectApp} engineLive={engineLive} />
   }
 
   if (view === 'paste') {
@@ -395,19 +380,28 @@ export default function App() {
                 </button>
               </div>
             )}
-            {loadedApp && (
-              <ScreenTabs
-                appName={loadedApp.name}
-                appIcon={loadedApp.icon}
-                screens={loadedApp.screens}
-                activeScreenId={activeScreenId}
-                issueCounts={screenIssueCounts}
-                onSelect={onSwitchScreen}
-              />
-            )}
             <PipelineStrip />
-            <Group orientation="horizontal" className="min-h-0 flex-1 gap-0">
-            <Panel defaultSize="72%" minSize="45%" className="!overflow-visible">
+            <Group
+              orientation="horizontal"
+              className="min-h-0 flex-1 gap-0"
+              key={`${loadedApp?.id ?? 'single'}-${showFileBrowser}`}
+            >
+            {showFileBrowser && loadedApp && (
+              <>
+                <Panel defaultSize="15%" minSize="11%" maxSize="26%" className="!overflow-visible">
+                  <FileBrowser
+                    appName={loadedApp.name}
+                    appIcon={loadedApp.icon}
+                    screens={loadedApp.screens}
+                    activeScreenId={activeScreenId}
+                    issueCounts={screenIssueCounts}
+                    onSelect={onSwitchScreen}
+                  />
+                </Panel>
+                <ResizeHandle />
+              </>
+            )}
+            <Panel defaultSize={showFileBrowser ? '60%' : '72%'} minSize="40%" className="!overflow-visible">
               <Group orientation="horizontal" className="h-full min-h-0">
                 <Panel defaultSize="50%" minSize="25%" className="!overflow-visible">
                   <ScreenPanel
@@ -439,7 +433,7 @@ export default function App() {
               </Group>
             </Panel>
             <ResizeHandle />
-            <Panel defaultSize="28%" minSize="20%" className="!overflow-visible">
+            <Panel defaultSize={showFileBrowser ? '25%' : '28%'} minSize="18%" className="!overflow-visible">
               <InconsistenciesPanel
                 items={items}
                 filter={filter}
