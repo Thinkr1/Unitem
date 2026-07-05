@@ -75,3 +75,30 @@ export interface ComparisonResult {
   /** Present on POST /transfer responses. */
   transfer?: TransferSummary
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Whole-app analysis — a codebase is a collection of screens (one iOS/Android
+// file pair each) that share a single rulebook. Selected on the launch screen,
+// either from the bundled demo apps (src/demoApps.ts) or scanned from a real
+// iOS + Android folder pair the user picks (src/lib/codebaseScan.ts).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AppScreen {
+  /** Stable id used as the engine `screen` query param and React key. */
+  id: string
+  /** Display name, e.g. "Daily Goals". */
+  name: string
+  ios: CodePanel
+  android: CodePanel
+  inconsistencies: Inconsistency[]
+}
+
+export interface CodebaseApp {
+  id: string
+  name: string
+  description: string
+  /** Emoji glyph shown on the launch screen's app card. */
+  icon: string
+  rulebook: Record<string, string>
+  screens: AppScreen[]
+}
