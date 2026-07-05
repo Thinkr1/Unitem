@@ -25,12 +25,14 @@ export interface LocalAnalysisProgress {
 interface AgentProgressStripProps {
   engineProgress: EngineProgress | null
   localProgress?: LocalAnalysisProgress | null
+  engineLive?: boolean | null
   idleHint?: string
 }
 
 export default function AgentProgressStrip({
   engineProgress,
   localProgress = null,
+  engineLive = null,
   idleHint,
 }: AgentProgressStripProps) {
   const isEngineLive = engineProgress?.state === 'running'
@@ -43,11 +45,15 @@ export default function AgentProgressStrip({
   const { boomIndex, wakeIndex } = useStageTransition(activeIndex, STAGES.length)
 
   if (!progress) {
+    const engineHint =
+      engineLive === false
+        ? 'Local agents run on edit · start `unitem serve` for the full engine pipeline'
+        : 'Edit either file — agents re-analyze and propose Android sync fixes'
     return (
       <div className="pipeline-strip mb-2 flex items-center gap-2 glass-card px-3 py-2">
         <span className="agent-live-tag shrink-0 text-ink-faint">○ agents idle</span>
         <p className="truncate font-mono text-[9px] text-ink-faint">
-          {idleHint ?? 'Edit either file to re-analyze · agents will propose consistency fixes'}
+          {idleHint ?? engineHint}
         </p>
       </div>
     )
@@ -62,7 +68,7 @@ export default function AgentProgressStrip({
     <div className="pipeline-strip mb-2 flex flex-col gap-2 glass-card px-3 py-2.5">
       <div className="flex items-center gap-2">
         <span className="agent-live-tag shrink-0">
-          {isEngineLive ? '● live' : '● analyzing'}
+          {isEngineLive ? '● engine agents' : '● local agents'}
         </span>
         {progress.detail && (
           <p className="truncate font-mono text-[9px] text-ink-faint">{progress.detail}</p>
@@ -73,7 +79,7 @@ export default function AgentProgressStrip({
         fill={overallFill}
         activeIndex={activeIndex}
         stageCount={STAGES.length}
-        label={isEngineLive ? 'Engine pipeline' : 'Re-analyzing pair'}
+        label={isEngineLive ? 'Engine agent pipeline' : 'Local agent pipeline'}
         compact
       />
 

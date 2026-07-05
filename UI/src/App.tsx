@@ -20,7 +20,7 @@ import AppShell from './components/AppShell'
 import { type NavPage } from './components/NavRail'
 import AgentProgressStrip from './components/AgentProgressStrip'
 import { useEngineProgress } from './hooks/useEngineProgress'
-import { useReanalyzeOnEdit } from './hooks/useReanalyzeOnEdit'
+import { useReanalyzeOnEdit, type ReanalyzeOutcome } from './hooks/useReanalyzeOnEdit'
 import PasteScreen from './components/PasteScreen'
 import LaunchScreen from './components/LaunchScreen'
 import FileBrowser from './components/FileBrowser'
@@ -229,13 +229,25 @@ export default function App() {
   }
 
   const handleReanalyzeResults = useCallback(
-    (next: Inconsistency[], source: 'engine' | 'local') => {
-      setItems(next)
-      syncScreenItems(next)
-      if (source === 'local') {
+    (outcome: ReanalyzeOutcome) => {
+      setItems(outcome.items)
+      syncScreenItems(outcome.items)
+      const { openCount, propagateCount, source } = outcome
+      if (openCount === 0) {
         setTransferMsg({
           kind: 'success',
-          text: 'Re-analyzed — consistency fixes updated. Android code unchanged until you apply a fix.',
+          text:
+            source === 'engine'
+              ? 'Engine agents: no open issues — platforms look consistent.'
+              : 'Local agents: no open issues — platforms look consistent.',
+        })
+      } else {
+        setTransferMsg({
+          kind: 'success',
+          text:
+            source === 'engine'
+              ? `Engine agents: ${openCount} open issue${openCount === 1 ? '' : 's'}${propagateCount > 0 ? ` · ${propagateCount} propose syncing to Android` : ''}. Android code unchanged until you apply a fix.`
+              : `Local agents: ${openCount} open issue${openCount === 1 ? '' : 's'}${propagateCount > 0 ? ` · ${propagateCount} propose syncing to Android` : ''}. Android code unchanged until you apply a fix.`,
         })
       }
     },
@@ -550,10 +562,11 @@ export default function App() {
             <AgentProgressStrip
               engineProgress={engineProgress}
               localProgress={localProgress}
+              engineLive={engineLive}
               idleHint={
                 loadedApp
-                  ? 'Select a screen in the file tree · edit either file to re-analyze'
-                  : 'Edit either file to re-analyze · agents propose consistency fixes'
+                  ? 'Select a screen · edit iOS padding, text, spacing — local agents propose Android fixes'
+                  : undefined
               }
             />
             <Group

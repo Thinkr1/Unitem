@@ -5,17 +5,14 @@ import type { Inconsistency } from '../types'
 import type { LocalAnalysisProgress } from '../components/AgentProgressStrip'
 
 const STAGE_SEQUENCE = [
-  { id: 'discover', detail: 'Extracting design facts from both files…', weight: 0.2 },
-  { id: 'map', detail: 'Mapping iOS elements to Android counterparts…', weight: 0.2 },
-  { id: 'judge', detail: 'Classifying differences — propagate, hold, or flag…', weight: 0.35 },
-  { id: 'fix', detail: 'Generating proposed fixes…', weight: 0.15 },
-  { id: 'review', detail: 'Updating review panel…', weight: 0.1 },
+  { id: 'discover', detail: 'Discover agent: extracting colors, spacing, text, padding…', weight: 0.2 },
+  { id: 'map', detail: 'Map agent: pairing iOS elements with Android counterparts…', weight: 0.2 },
+  { id: 'judge', detail: 'Judge agent: classify drift — propagate, hold, or flag…', weight: 0.35 },
+  { id: 'fix', detail: 'Fix agent: generating proposed Android sync diffs…', weight: 0.15 },
+  { id: 'review', detail: 'Review: updating findings panel…', weight: 0.1 },
 ] as const
 
-function mergeInconsistencies(
-  fresh: Inconsistency[],
-  previous: Inconsistency[],
-): Inconsistency[] {
+function mergeStatuses(fresh: Inconsistency[], previous: Inconsistency[]): Inconsistency[] {
   const prevById = new Map(previous.map((i) => [i.id, i]))
   return fresh.map((item) => {
     const prev = prevById.get(item.id)
@@ -34,6 +31,14 @@ interface ReanalyzeOptions {
   debounceMs?: number
 }
 
+export interface ReanalyzeOutcome {
+  items: Inconsistency[]
+  source: 'engine' | 'local'
+  openCount: number
+  propagateCount: number
+  newCount: number
+}
+
 /** Debounced re-analysis when the user edits either side. Only updates
  *  inconsistencies — never overwrites source code. */
 export function useReanalyzeOnEdit({
@@ -44,7 +49,7 @@ export function useReanalyzeOnEdit({
   debounceMs = 900,
   onResults,
 }: ReanalyzeOptions & {
-  onResults: (items: Inconsistency[], source: 'engine' | 'local') => void
+  onResults: (outcome: ReanalyzeOutcome) => void
 }) {
   const [localProgress, setLocalProgress] = useState<LocalAnalysisProgress | null>(null)
   const timerRef = useRef<number | null>(null)
@@ -86,52 +91,75 @@ export function useReanalyzeOnEdit({
     }
 
     advance()
-    stageTimerRef.current = window.setInterval(advance, 280)
+    stageTimerRef.current = window.setInterval(advance, 320)
   }, [])
 
   const runAnalysis = useCallback(
-    async (ios: string, android: string, prev: Inconsistency[]) => {
+    async (ios: string, android: string, baseline: Inconsistency[]) => {
       const runId = ++runIdRef.current
       simulateStages(runId)
 
       const engineResult = await analyzePair(ios, android)
       if (runIdRef.current !== runId) return
 
-      let items: Inconsistency[]
-      let source: 'engine' | 'local'
+      let outcome: ReanalyzeOutcome
 
       if (engineResult) {
-        items = mergeInconsistencies(engineResult.inconsistencies, prev)
-        source = 'engine'
+        const items = mergeStatuses(engineResult.inconsistencies, baseline)
+        const open = items.filter((i) => i.status === 'open' && i.verdict !== 'hold')
+        outcome = {
+          items,
+          source: 'engine',
+          openCount: open.length,
+          propagateCount: open.filter((i) => i.verdict === 'propagate').length,
+          newCount: items.length,
+        }
+        setLocalProgress({
+          stage: 'review',
+          detail: `Engine agents: ${outcome.openCount} open issue${outcome.openCount === 1 ? '' : 's'} (${outcome.propagateCount} to sync)`,
+          done: STAGE_SEQUENCE.length,
+          total: STAGE_SEQUENCE.length,
+        })
       } else {
-        items = mergeInconsistencies(
-          analyzeLocally(ios, android, rulebook, iosFileName, androidFileName, screenId),
-          prev,
+        const result = analyzeLocally(
+          ios,
+          android,
+          rulebook,
+          iosFileName,
+          androidFileName,
+          screenId,
+          baseline,
         )
-        source = 'local'
+        const items = mergeStatuses(result.items, baseline)
+        outcome = {
+          items,
+          source: 'local',
+          openCount: result.openCount,
+          propagateCount: result.propagateCount,
+          newCount: result.newCount,
+        }
+        setLocalProgress({
+          stage: 'review',
+          detail: `Local agents: ${outcome.openCount} open issue${outcome.openCount === 1 ? '' : 's'} · ${outcome.propagateCount} propose Android sync`,
+          done: STAGE_SEQUENCE.length,
+          total: STAGE_SEQUENCE.length,
+        })
       }
 
-      setLocalProgress({
-        stage: 'review',
-        detail: source === 'engine' ? 'Engine analysis complete' : 'Local analysis complete',
-        done: STAGE_SEQUENCE.length,
-        total: STAGE_SEQUENCE.length,
-      })
-
-      onResultsRef.current(items, source)
+      onResultsRef.current(outcome)
 
       window.setTimeout(() => {
         if (runIdRef.current === runId) setLocalProgress(null)
-      }, 1200)
+      }, 2200)
     },
     [androidFileName, iosFileName, rulebook, screenId, simulateStages],
   )
 
   const scheduleReanalyze = useCallback(
-    (ios: string, android: string, prev: Inconsistency[]) => {
+    (ios: string, android: string, baseline: Inconsistency[]) => {
       if (timerRef.current) window.clearTimeout(timerRef.current)
       timerRef.current = window.setTimeout(() => {
-        void runAnalysis(ios, android, prev)
+        void runAnalysis(ios, android, baseline)
       }, debounceMs)
     },
     [debounceMs, runAnalysis],
