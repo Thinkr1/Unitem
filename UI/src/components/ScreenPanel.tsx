@@ -58,49 +58,46 @@ export default function ScreenPanel({
   // visual view handles its own highlight so we don't force a tab switch.
 
   return (
-    <section className="flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-edge bg-surface">
-      <header className="flex h-11 shrink-0 items-center justify-between px-4">
-        <h2 className="font-heading text-[14px] font-semibold tracking-wide text-ink">
-          {title}
-        </h2>
+    <section className="glass-card flex h-full min-w-0 flex-col overflow-hidden">
+      <header className="flex h-[3rem] shrink-0 items-center justify-between border-b border-edge px-4">
+        <h2 className="font-heading text-[14px] font-bold text-ink">{title}</h2>
 
-        {/* View toggle — segmented pill */}
-        <div className="flex shrink-0 rounded-full bg-surface-deep p-0.5">
+        <div className="flex shrink-0 items-center gap-1">
           <button
             onClick={() => setView('visual')}
-            className={`rounded-full px-3 py-1 font-heading text-[10.5px] font-semibold transition-colors ${
+            className={`rounded-lg border px-3 py-1.5 font-heading text-[11px] font-bold transition-all ${
               view === 'visual'
-                ? 'bg-accent text-accent-contrast'
-                : 'text-ink-faint hover:text-ink-muted'
+                ? 'border-[#8fa824] bg-accent text-accent-contrast shadow-sm'
+                : 'glass-btn-quiet border-transparent px-2.5'
             }`}
           >
             Visual
           </button>
-          <button
-            onClick={() => setView('simulator')}
-            className={`rounded-full px-3 py-1 font-heading text-[10.5px] font-semibold transition-colors ${
-              view === 'simulator'
-                ? 'bg-accent text-accent-contrast'
-                : 'text-ink-faint hover:text-ink-muted'
-            }`}
-          >
-            Simulator
-          </button>
-          <button
-            onClick={() => setView('code')}
-            className={`rounded-full px-3 py-1 font-heading text-[10.5px] font-semibold transition-colors ${
-              view === 'code'
-                ? 'bg-accent text-accent-contrast'
-                : 'text-ink-faint hover:text-ink-muted'
-            }`}
-          >
-            Code
-          </button>
+          {(
+            [
+              ['simulator', 'Sim'],
+              ['code', 'Code'],
+            ] as const
+          ).map(([tab, label]) => (
+            <button
+              key={tab}
+              onClick={() => setView(tab)}
+              title={tab === 'simulator' ? 'Simulator' : 'Source code'}
+              className={`rounded-lg px-2 py-1.5 font-heading text-[10px] font-semibold transition-all ${
+                view === tab
+                  ? 'border border-[#8fa824] bg-surface-raised text-ink'
+                  : 'glass-btn-quiet'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </header>
 
       {view === 'visual' ? (
-        panel.platform === 'android' ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {panel.platform === 'android' ? (
           <FlutterPreview
             // Prefer the engine's previewCode — theme already inlined, assets
             // already swapped (robustly) and compile-checked. Falls back to the
@@ -117,7 +114,8 @@ export default function ScreenPanel({
             rulebook={rulebook}
             activeInconsistency={activeInconsistency}
           />
-        )
+        )}
+        </div>
       ) : view === 'simulator' ? (
         <SimulatorPreview platform={panel.platform} />
       ) : editable ? (

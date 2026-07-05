@@ -59,14 +59,13 @@ export default function InconsistencyCard({
     <article
       onClick={() => onSelect(item)}
       className={[
-        'cursor-pointer overflow-hidden rounded-xl border border-l-2 transition-colors',
+        'cursor-pointer overflow-hidden rounded-xl transition-all duration-200',
+        'border border-l-[3px] border-edge',
         borderClass,
         active
-          ? isHold
-            ? 'border-info-blue/40 bg-surface-raised'
-            : 'border-accent/50 bg-surface-raised'
-          : 'border-edge bg-surface-deep hover:border-edge-bright',
-        settled ? 'opacity-40' : '',
+          ? 'bg-surface shadow-md ring-1 ring-accent/25'
+          : 'glass-inset hover:bg-surface-raised hover:shadow-sm',
+        settled ? 'opacity-50' : '',
       ].join(' ')}
     >
       <div className="flex items-center gap-2.5 px-3 py-2.5">
@@ -106,7 +105,7 @@ export default function InconsistencyCard({
         }`}
       >
         <div className="overflow-hidden">
-          <div className="border-t border-edge/60 px-3 pb-3 pt-2.5">
+          <div className="border-t border-edge bg-surface px-3 pb-3 pt-2.5">
             <p className="mb-2.5 text-[11.5px] leading-snug text-ink-muted">
               {bodyText}
             </p>
@@ -159,7 +158,7 @@ export default function InconsistencyCard({
               </a>
             )}
 
-            <div className="mt-2.5 flex gap-2">
+            <div className="mt-3 flex gap-2">
               {!isHold && (
                 <button
                   disabled={settled}
@@ -167,7 +166,7 @@ export default function InconsistencyCard({
                     e.stopPropagation()
                     onResolve(item.id)
                   }}
-                  className="rounded border border-accent/50 px-2.5 py-1 font-heading text-[11px] font-medium text-accent transition-colors hover:bg-accent/10 disabled:pointer-events-none disabled:border-edge disabled:text-ink-faint"
+                  className="glass-btn-primary-lg flex-1 disabled:pointer-events-none disabled:opacity-40"
                 >
                   {resolveLabel}
                 </button>
@@ -178,7 +177,7 @@ export default function InconsistencyCard({
                   e.stopPropagation()
                   onIgnore(item.id)
                 }}
-                className="rounded border border-edge px-2.5 py-1 font-heading text-[11px] font-medium text-ink-muted transition-colors hover:border-edge-bright hover:text-ink disabled:pointer-events-none disabled:text-ink-faint"
+                className="glass-btn-quiet rounded-lg px-3 py-2 font-heading text-[11px] disabled:pointer-events-none disabled:opacity-40"
               >
                 {ignoreLabel}
               </button>

@@ -9,7 +9,7 @@ export default function RulebookPage({ rulebook, items }: RulebookPageProps) {
   const open = items.filter((i) => i.status === 'open')
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto p-5">
+    <div className="h-full min-h-0 overflow-y-auto">
       <div className="mx-auto max-w-3xl space-y-3">
         <p className="text-[12px] text-ink-muted">
           Shared design tokens both platforms should follow. Violations are

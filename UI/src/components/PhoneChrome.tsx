@@ -14,15 +14,12 @@ export const DEVICE_H = 500
 export function IPhoneFrame({ children }: { children: ReactNode }) {
   return (
     <div
-      className="relative flex flex-col overflow-hidden"
+      className="device-bezel relative flex flex-col overflow-hidden"
       style={{
         width: DEVICE_W,
         height: DEVICE_H,
         borderRadius: 46,
         padding: 5,
-        background: '#0f0f11',
-        boxShadow:
-          '0 0 0 1px rgba(255,255,255,0.06), 0 20px 50px rgba(0,0,0,0.55)',
         flexShrink: 0,
       }}
     >
@@ -55,15 +52,12 @@ export function IPhoneFrame({ children }: { children: ReactNode }) {
 export function PixelFrame({ children }: { children: ReactNode }) {
   return (
     <div
-      className="relative flex flex-col overflow-hidden"
+      className="device-bezel relative flex flex-col overflow-hidden"
       style={{
         width: DEVICE_W,
         height: DEVICE_H,
         borderRadius: 30,
         padding: 4,
-        background: '#101112',
-        boxShadow:
-          '0 0 0 1px rgba(255,255,255,0.06), 0 20px 50px rgba(0,0,0,0.55)',
         flexShrink: 0,
       }}
     >
@@ -127,7 +121,7 @@ export function ScaleToFit({
   return (
     <div
       ref={ref}
-      className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-2"
+      className="device-preview-canvas flex min-h-0 flex-1 items-center justify-center overflow-hidden p-1"
     >
       <div
         style={{
@@ -156,6 +150,17 @@ function TrafficLights() {
   )
 }
 
+/** Full-bleed preview area — phone scales to fill the panel (no window chrome). */
+export function DeviceCanvas({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <ScaleToFit width={DEVICE_W} height={DEVICE_H}>
+        {children}
+      </ScaleToFit>
+    </div>
+  )
+}
+
 /** macOS Simulator.app-style window. `badge` names the render source. */
 export function SimulatorWindow({
   device,
@@ -167,21 +172,17 @@ export function SimulatorWindow({
   children: ReactNode
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ background: '#1e1e1e' }}>
-      {/* macOS-style window titlebar, matching Simulator.app */}
+    <div className="device-preview-window flex min-h-0 flex-1 flex-col overflow-hidden">
       <div
-        className="relative flex shrink-0 items-center justify-center px-3"
-        style={{ height: 30, background: 'linear-gradient(180deg,#3d3d3f,#323234)', borderBottom: '1px solid rgba(0,0,0,0.5)' }}
+        className="device-preview-titlebar relative flex shrink-0 items-center justify-center border-b border-edge px-3"
+        style={{ height: 32 }}
       >
         <div className="absolute left-3"><TrafficLights /></div>
-        <span style={{ fontSize: 11, fontWeight: 500, color: '#d8d8dc', fontFamily: 'ui-sans-serif, system-ui' }}>
+        <span className="device-preview-title text-[11px] font-medium">
           {device}
         </span>
         {badge && (
-          <span
-            className="absolute right-3"
-            style={{ fontSize: 10, color: '#8e8e93', fontFamily: 'ui-monospace, monospace' }}
-          >
+          <span className="device-preview-badge absolute right-3 font-mono text-[10px]">
             {badge}
           </span>
         )}
@@ -194,111 +195,28 @@ export function SimulatorWindow({
   )
 }
 
-function EmulatorControlRail() {
-  const controls: { title: string; icon: ReactNode }[] = [
-    {
-      title: 'Power',
-      icon: (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
-          <line x1="12" y1="2" x2="12" y2="12" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Volume up',
-      icon: (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M11 5 6 9H2v6h4l5 4V5z" />
-          <path d="M15.5 8.5a5 5 0 0 1 0 7" />
-          <path d="M19 5a10 10 0 0 1 0 14" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Volume down',
-      icon: (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M11 5 6 9H2v6h4l5 4V5z" />
-          <path d="M15.5 8.5a5 5 0 0 1 0 7" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Rotate',
-      icon: (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M23 4v6h-6" />
-          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Screenshot',
-      icon: (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-          <circle cx="12" cy="13" r="4" />
-        </svg>
-      ),
-    },
-    {
-      title: 'More',
-      icon: (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="12" cy="5" r="1.6" />
-          <circle cx="12" cy="12" r="1.6" />
-          <circle cx="12" cy="19" r="1.6" />
-        </svg>
-      ),
-    },
-  ]
-
-  return (
-    <div
-      className="flex w-9 shrink-0 flex-col items-center gap-3 border-l py-3"
-      style={{ borderColor: 'rgba(255,255,255,0.08)', background: '#26272a' }}
-    >
-      {controls.map((c) => (
-        <span
-          key={c.title}
-          title={c.title}
-          className="flex h-6 w-6 items-center justify-center rounded"
-          style={{ color: '#9aa0a6' }}
-        >
-          {c.icon}
-        </span>
-      ))}
-    </div>
-  )
-}
-
-/** Standalone Android Emulator-style window (titlebar + control rail). */
+/** Standalone Android Emulator-style window (titlebar only). */
 export function EmulatorWindow({ device, children }: { device: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ background: '#202124' }}>
-      {/* Generic (cross-platform) window titlebar, matching the standalone
-          Android Emulator window — not the Android Studio layout editor. */}
+    <div className="device-preview-window relative flex min-h-0 flex-1 flex-col overflow-hidden">
       <div
-        className="relative flex shrink-0 items-center justify-center px-3"
-        style={{ height: 30, background: '#292a2d', borderBottom: '1px solid rgba(0,0,0,0.5)' }}
+        className="device-preview-titlebar relative flex shrink-0 items-center justify-center border-b border-edge px-3"
+        style={{ height: 32 }}
       >
         <div className="absolute left-3 flex items-center gap-[5px]" aria-hidden>
-          <span style={{ width: 9, height: 9, borderRadius: 2, background: 'rgba(255,255,255,0.16)' }} />
-          <span style={{ width: 9, height: 9, borderRadius: 2, background: 'rgba(255,255,255,0.16)' }} />
-          <span style={{ width: 9, height: 9, borderRadius: 2, background: 'rgba(255,255,255,0.28)' }} />
+          <span style={{ width: 9, height: 9, borderRadius: 2, background: '#d4d4d4' }} />
+          <span style={{ width: 9, height: 9, borderRadius: 2, background: '#d4d4d4' }} />
+          <span style={{ width: 9, height: 9, borderRadius: 2, background: '#a3a3a3' }} />
         </div>
-        <span style={{ fontSize: 11, fontWeight: 500, color: '#d8d8dc', fontFamily: 'ui-sans-serif, system-ui' }}>
-          {device} <span style={{ color: '#7a7c80' }}>— Android Emulator</span>
+        <span className="device-preview-title text-[11px] font-medium">
+          {device}{' '}
+          <span className="text-ink-faint">— Android Emulator</span>
         </span>
       </div>
 
-      <div className="flex min-h-0 flex-1">
-        <ScaleToFit width={DEVICE_W} height={DEVICE_H}>
-          {children}
-        </ScaleToFit>
-        <EmulatorControlRail />
-      </div>
+      <ScaleToFit width={DEVICE_W} height={DEVICE_H}>
+        {children}
+      </ScaleToFit>
     </div>
   )
 }

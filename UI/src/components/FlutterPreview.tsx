@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { wrapDartForPreview } from '../lib/flutterHarness'
-import { PixelFrame, EmulatorWindow } from './PhoneChrome'
+import { DEVICE_H, DEVICE_W, DeviceCanvas, PixelFrame } from './PhoneChrome'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FlutterPreview renders the Dart *for real* by embedding DartPad and
@@ -23,7 +23,7 @@ interface FlutterPreviewProps {
   themeCode?: string
 }
 
-export default function FlutterPreview({ code, device, rulebook = {}, themeCode }: FlutterPreviewProps) {
+export default function FlutterPreview({ code, rulebook = {}, themeCode }: FlutterPreviewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const loadedRef = useRef(false)
   const [status, setStatus] = useState<Status>('loading')
@@ -88,8 +88,8 @@ export default function FlutterPreview({ code, device, rulebook = {}, themeCode 
   }
 
   return (
-    <EmulatorWindow device={device}>
-      <div className="relative">
+    <DeviceCanvas>
+      <div className="relative" style={{ width: DEVICE_W, height: DEVICE_H }}>
         <PixelFrame>
           <iframe
             ref={iframeRef}
@@ -102,7 +102,7 @@ export default function FlutterPreview({ code, device, rulebook = {}, themeCode 
         </PixelFrame>
 
         {status !== 'ready' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-[30px] bg-surface-deep/85 backdrop-blur-sm">
+          <div className="device-preview-overlay absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-[30px]">
             {status === 'loading' ? (
               <>
                 <span className="h-6 w-6 animate-spin rounded-full border-2 border-edge-bright border-t-accent" />
@@ -123,6 +123,6 @@ export default function FlutterPreview({ code, device, rulebook = {}, themeCode 
           </div>
         )}
       </div>
-    </EmulatorWindow>
+    </DeviceCanvas>
   )
 }

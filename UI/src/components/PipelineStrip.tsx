@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Live pipeline stage strip — polls the engine's GET /progress and shows which
-// architecture stage is running (discover → map → judge → fix → review).
-// Hidden while the engine is idle. This is REAL state, not an animation.
-// ─────────────────────────────────────────────────────────────────────────────
+import {
+  overallPipelineFill,
+  PipelineProgressBar,
+  StepBattery,
+  stepPhase,
+  useStageTransition,
+} from './AgentPowerBar'
 
 const STAGES = [
-  { id: 'discover', label: 'Discover', agent: 'deterministic parser' },
-  { id: 'map', label: 'Map', agent: 'mapper' },
-  { id: 'judge', label: 'Judge', agent: 'classifier agents' },
-  { id: 'fix', label: 'Fix', agent: 'fixer agent' },
-  { id: 'review', label: 'Review', agent: 'human console' },
+  { id: 'discover', label: 'Discover' },
+  { id: 'map', label: 'Map' },
+  { id: 'judge', label: 'Judge' },
+  { id: 'fix', label: 'Fix' },
+  { id: 'review', label: 'Review' },
 ] as const
 
 interface EngineProgress {
@@ -27,6 +28,11 @@ export default function PipelineStrip() {
   const [progress, setProgress] = useState<EngineProgress | null>(null)
   const lingerRef = useRef<number | null>(null)
 
+  const activeIndex = progress
+    ? STAGES.findIndex((s) => s.id === progress.stage)
+    : -1
+  const { boomIndex, wakeIndex } = useStageTransition(activeIndex, STAGES.length)
+
   useEffect(() => {
     let cancelled = false
     const poll = async () => {
@@ -39,11 +45,10 @@ export default function PipelineStrip() {
           if (lingerRef.current) window.clearTimeout(lingerRef.current)
           setProgress(next)
         } else {
-          // linger on the last stage briefly so fast runs are still visible
           lingerRef.current = window.setTimeout(() => setProgress(null), 2500)
         }
       } catch {
-        if (!cancelled) setProgress(null) // engine down — hide
+        if (!cancelled) setProgress(null)
       }
     }
     const timer = window.setInterval(poll, 600)
@@ -56,59 +61,64 @@ export default function PipelineStrip() {
   }, [])
 
   if (!progress) return null
-  const activeIndex = STAGES.findIndex((s) => s.id === progress.stage)
+
   const events = progress.events ?? []
+  const stepFill =
+    progress.total > 0 ? Math.min(1, progress.done / progress.total) : 0
+  const overallFill = overallPipelineFill(activeIndex, stepFill, STAGES.length)
 
   return (
-    <div className="mx-1 mb-3 flex flex-col gap-2 rounded-xl border border-accent/30 bg-surface px-4 py-2.5">
-      <div className="flex items-center gap-3">
-      <span className="flex items-center gap-2 font-heading text-[10.5px] font-bold uppercase tracking-wider text-accent">
-        <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
-        Pipeline
-      </span>
+    <div className="pipeline-strip mb-2 flex flex-col gap-2 glass-card px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <span className="agent-live-tag shrink-0">● pipeline</span>
+        {progress.detail && (
+          <p className="truncate font-mono text-[9px] text-ink-faint">{progress.detail}</p>
+        )}
+      </div>
 
-      <div className="flex items-center gap-1.5">
-        {STAGES.map((stage, i) => {
-          const isActive = i === activeIndex
-          const isDone = activeIndex > -1 && i < activeIndex
+      <PipelineProgressBar
+        fill={overallFill}
+        activeIndex={activeIndex}
+        stageCount={STAGES.length}
+        label="Overall progress"
+        compact
+      />
+
+      <div className="grid grid-cols-5 gap-1.5">
+        {STAGES.map((stage, index) => {
+          const phase = stepPhase(index, activeIndex, boomIndex)
+          const fill =
+            phase === 'done' || phase === 'boom'
+              ? 1
+              : phase === 'charging'
+                ? stepFill
+                : 0
+
           return (
-            <div key={stage.id} className="flex items-center gap-1.5">
-              {i > 0 && (
-                <span
-                  className={`h-px w-4 ${isDone || isActive ? 'bg-accent/60' : 'bg-edge'}`}
-                />
-              )}
-              <span
-                className={[
-                  'rounded-full border px-2.5 py-1 font-heading text-[10.5px] font-semibold transition-colors',
-                  isActive
-                    ? 'border-accent bg-accent/15 text-accent'
-                    : isDone
-                      ? 'border-accent/40 text-ink-muted'
-                      : 'border-edge text-ink-faint',
-                ].join(' ')}
-              >
-                {isDone ? '✓ ' : ''}
+            <div
+              key={stage.id}
+              className={[
+                'agent-stage rounded-lg border border-edge bg-surface-raised px-2 py-1.5',
+                index === activeIndex ? 'agent-stage--active' : '',
+                phase === 'done' ? 'agent-stage--done' : '',
+                phase === 'boom' ? 'agent-stage--boom' : '',
+                index === wakeIndex ? 'agent-stage--wake' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              <p className="mb-1 truncate text-center font-heading text-[10px] font-semibold text-ink">
+                {phase === 'done' ? '✓ ' : ''}
                 {stage.label}
-                {isActive && progress.total > 0 && (
-                  <span className="ml-1 font-mono">
-                    {progress.done}/{progress.total}
-                  </span>
-                )}
-              </span>
+              </p>
+              <StepBattery fill={fill} phase={phase} compact />
             </div>
           )
         })}
       </div>
 
-      <span className="min-w-0 flex-1 truncate text-right font-mono text-[10.5px] text-ink-muted">
-        {progress.detail}
-      </span>
-      </div>
-
-      {/* Activity feed — the engine's live "thinking": one line per real event */}
       {events.length > 0 && (
-        <div className="max-h-24 overflow-y-auto rounded-lg bg-surface-deep px-3 py-2">
+        <div className="max-h-24 overflow-y-auto rounded-lg bg-surface-raised px-3 py-2">
           {events
             .slice()
             .reverse()

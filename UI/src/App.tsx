@@ -15,13 +15,14 @@ import ScreenPanel, { type LinePulse } from './components/ScreenPanel'
 import InconsistenciesPanel, {
   type Filter,
 } from './components/InconsistenciesPanel'
-import NavRail, { type NavPage } from './components/NavRail'
+import AppShell from './components/AppShell'
+import { type NavPage } from './components/NavRail'
 import PipelineStrip from './components/PipelineStrip'
 import PasteScreen from './components/PasteScreen'
 import OverviewPage from './components/OverviewPage'
 import AgentsPage from './components/AgentsPage'
 import RulebookPage from './components/RulebookPage'
-import AlertsPage from './components/AlertsPage'
+import { cycleTheme } from './lib/theme'
 
 const SEVERITY_RANK: Record<Severity, number> = { error: 3, warning: 2, info: 1 }
 
@@ -108,6 +109,17 @@ export default function App() {
         setView('dashboard') // engine has judged tickets — go straight to review
       }
     })
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault()
+        cycleTheme()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   // Rescan = run the real pipeline (discover -> map -> judge agents -> fixes).
@@ -204,11 +216,6 @@ export default function App() {
     setAndroidPulse({ line: item.android.line, nonce })
   }
 
-  const onSelectFromAlerts = (item: Inconsistency) => {
-    onSelect(item)
-    setPage('comparison')
-  }
-
   const onAnalyze = async (payload: { iosCode: string; androidCode: string }) => {
     setIosCode(payload.iosCode)
     setAndroidCode(payload.androidCode)
@@ -225,38 +232,47 @@ export default function App() {
     code: androidCode,
     previewCode: androidPreview,
   }
-  const openFlags = items.filter(
-    (i) =>
-      i.status === 'open' &&
-      i.verdict !== 'hold' &&
-      (i.verdict === 'flag' || !i.verdict),
-  ).length
 
   if (view === 'paste') {
     return (
-      <PasteScreen
-        initialIos={iosCode}
-        initialAndroid={androidCode}
-        onAnalyze={onAnalyze}
-      />
-    )
-  }
-
-  return (
-    <div className="flex h-screen bg-surface-deep text-ink antialiased">
-      <NavRail
+      <AppShell
         page={page}
-        onNavigate={setPage}
-        alertCount={openFlags}
+        onNavigate={(p) => {
+          setPage(p)
+          setView('dashboard')
+        }}
         onEditCode={() => setView('paste')}
         onRescan={onRescan}
         rescanning={rescanning}
         engineLive={engineLive}
-      />
+        editMode
+        onBackFromEdit={() => setView('dashboard')}
+        topChrome={{
+          title: 'Edit source',
+          subtitle: 'Paste or update iOS & Android code',
+        }}
+      >
+        <PasteScreen
+          initialIos={iosCode}
+          initialAndroid={androidCode}
+          onAnalyze={onAnalyze}
+        />
+      </AppShell>
+    )
+  }
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col pr-4 pb-4 pt-2">
+  return (
+    <AppShell
+      page={page}
+      onNavigate={setPage}
+      onEditCode={() => setView('paste')}
+      onRescan={onRescan}
+      rescanning={rescanning}
+      engineLive={engineLive}
+      hideTopChrome={page === 'comparison'}
+    >
         {page === 'comparison' ? (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="flex h-full min-h-0 min-w-0 flex-col">
             {transferMsg && (
               <div
                 role="status"
@@ -277,37 +293,41 @@ export default function App() {
               </div>
             )}
             <PipelineStrip />
-            <Group orientation="horizontal" className="min-h-0 flex-1">
-            <Panel defaultSize="34%" minSize="18%" className="!overflow-visible">
-              <ScreenPanel
-                panel={iosPanel}
-                title="iOS"
-                editable
-                onCodeChange={setIosCode}
-                rulebook={rulebook}
-                flaggedLines={flaggedLines(items, 'ios')}
-                activeLine={active?.ios.line ?? null}
-                pulse={iosPulse}
-                activeInconsistency={active}
-                inconsistencies={items}
-              />
+            <Group orientation="horizontal" className="min-h-0 flex-1 gap-0">
+            <Panel defaultSize="72%" minSize="45%" className="!overflow-visible">
+              <Group orientation="horizontal" className="h-full min-h-0">
+                <Panel defaultSize="50%" minSize="25%" className="!overflow-visible">
+                  <ScreenPanel
+                    panel={iosPanel}
+                    title="iOS"
+                    editable
+                    onCodeChange={setIosCode}
+                    rulebook={rulebook}
+                    flaggedLines={flaggedLines(items, 'ios')}
+                    activeLine={active?.ios.line ?? null}
+                    pulse={iosPulse}
+                    activeInconsistency={active}
+                    inconsistencies={items}
+                  />
+                </Panel>
+                <ResizeHandle />
+                <Panel defaultSize="50%" minSize="25%" className="!overflow-visible">
+                  <ScreenPanel
+                    key={`android-${rescanNonce}`}
+                    panel={androidPanel}
+                    title="Android"
+                    rulebook={rulebook}
+                    flaggedLines={flaggedLines(items, 'android')}
+                    activeLine={active?.android.line ?? null}
+                    pulse={androidPulse}
+                    activeInconsistency={active}
+                    inconsistencies={items}
+                  />
+                </Panel>
+              </Group>
             </Panel>
             <ResizeHandle />
-            <Panel defaultSize="34%" minSize="18%" className="!overflow-visible">
-              <ScreenPanel
-                key={`android-${rescanNonce}`}
-                panel={androidPanel}
-                title="Android"
-                rulebook={rulebook}
-                flaggedLines={flaggedLines(items, 'android')}
-                activeLine={active?.android.line ?? null}
-                pulse={androidPulse}
-                activeInconsistency={active}
-                inconsistencies={items}
-              />
-            </Panel>
-            <ResizeHandle />
-            <Panel defaultSize="32%" minSize="22%" className="!overflow-visible">
+            <Panel defaultSize="28%" minSize="20%" className="!overflow-visible">
               <InconsistenciesPanel
                 items={items}
                 filter={filter}
@@ -329,16 +349,7 @@ export default function App() {
           <AgentsPage />
         ) : page === 'rulebook' ? (
           <RulebookPage rulebook={rulebook} items={items} />
-        ) : (
-          <AlertsPage
-            items={items}
-            activeId={activeId}
-            onSelect={onSelectFromAlerts}
-            onResolve={onResolve}
-            onIgnore={onIgnore}
-          />
-        )}
-      </div>
-    </div>
+        ) : null}
+    </AppShell>
   )
 }

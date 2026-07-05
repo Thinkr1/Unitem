@@ -11,7 +11,7 @@ function createWindow() {
     minWidth: 1100,
     minHeight: 700,
     title: 'Unitem',
-    backgroundColor: '#0d0d0e',
+    backgroundColor: '#000000',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 12 },
     webPreferences: {
@@ -64,7 +64,8 @@ function registerDeviceBridgeHandlers() {
 
 app.whenReady().then(() => {
   registerDeviceBridgeHandlers()
-  createWindow()
+  const win = createWindow()
+  win.maximize()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { Inconsistency } from '../types'
-import { IPhoneFrame, SimulatorWindow } from './PhoneChrome'
+import { DeviceCanvas, IPhoneFrame } from './PhoneChrome'
 import {
   buildSwiftTheme,
   firstStringArg,
@@ -41,7 +41,6 @@ export default function SwiftPreview({
   themeCode,
   rulebook = {},
   activeInconsistency = null,
-  device = 'iPhone 15 Pro',
 }: SwiftPreviewProps) {
   const theme = useMemo(() => buildSwiftTheme(themeCode, rulebook), [themeCode, rulebook])
   const tree = useMemo(() => parseSwiftUI(code), [code])
@@ -52,7 +51,7 @@ export default function SwiftPreview({
   const ringColor = activeInconsistency ? SEVERITY_RING[activeInconsistency.severity] : undefined
 
   return (
-    <SimulatorWindow device={device} badge="rendered from SwiftUI source">
+    <DeviceCanvas>
       <IPhoneFrame>
         <div
           className="flex min-h-0 flex-1 flex-col justify-center overflow-hidden"
@@ -69,7 +68,7 @@ export default function SwiftPreview({
           )}
         </div>
       </IPhoneFrame>
-    </SimulatorWindow>
+    </DeviceCanvas>
   )
 }
 

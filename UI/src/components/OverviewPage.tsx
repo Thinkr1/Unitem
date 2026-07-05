@@ -18,7 +18,7 @@ function ScoreRing({ value }: { value: number }) {
           cy="54"
           r={r}
           fill="none"
-          stroke="var(--color-surface-deep)"
+          stroke="var(--color-edge)"
           strokeWidth="10"
         />
         <circle
@@ -62,11 +62,11 @@ export default function OverviewPage({ items }: OverviewPageProps) {
   const recent = items.filter((i) => i.status !== 'open').slice(0, 5)
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto p-5">
-      <div className="mx-auto grid max-w-5xl gap-4">
+    <div className="h-full min-h-0 overflow-y-auto">
+      <div className="grid gap-4">
         {/* Top row — score + progress */}
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="flex items-center gap-5 rounded-2xl border border-edge bg-surface p-5">
+          <div className="glass-card flex items-center gap-5 p-6">
             <ScoreRing value={score} />
             <div>
               <h2 className="font-heading text-[15px] font-bold text-ink">
@@ -75,7 +75,7 @@ export default function OverviewPage({ items }: OverviewPageProps) {
               <p className="mt-1 text-[12px] text-ink-muted">
                 {resolved} of {total} inconsistencies resolved
               </p>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-deep">
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-raised">
                 <div
                   className="h-full rounded-full bg-accent transition-[width]"
                   style={{ width: `${score}%` }}
@@ -84,7 +84,7 @@ export default function OverviewPage({ items }: OverviewPageProps) {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-edge bg-surface p-5">
+          <div className="glass-card p-6">
             <h2 className="font-heading text-[15px] font-bold text-ink">
               Open by severity
             </h2>
@@ -97,7 +97,7 @@ export default function OverviewPage({ items }: OverviewPageProps) {
                   <span className="w-16 font-heading text-[12px] capitalize text-ink-muted">
                     {s}
                   </span>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-deep">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-raised">
                     <div
                       className={`h-full rounded-full ${COUNT_DOT[s]}`}
                       style={{
@@ -115,7 +115,7 @@ export default function OverviewPage({ items }: OverviewPageProps) {
         </div>
 
         {/* Platform drift */}
-        <div className="rounded-2xl border border-edge bg-surface p-5">
+        <div className="glass-card p-6">
           <h2 className="mb-4 font-heading text-[15px] font-bold text-ink">
             Platform drift
           </h2>
@@ -123,7 +123,7 @@ export default function OverviewPage({ items }: OverviewPageProps) {
             {open.map((item) => (
               <div
                 key={item.id}
-                className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-xl bg-surface-deep px-3 py-2.5 font-mono text-[11px]"
+                className="glass-inset flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-3 font-mono text-[11px]"
               >
                 <span className="font-heading text-[12px] font-semibold text-ink">
                   {item.property}
@@ -146,7 +146,7 @@ export default function OverviewPage({ items }: OverviewPageProps) {
 
         {/* Recent activity */}
         {recent.length > 0 && (
-          <div className="rounded-2xl border border-edge bg-surface p-5">
+          <div className="glass-card p-6">
             <h2 className="mb-3 font-heading text-[15px] font-bold text-ink">
               Recent activity
             </h2>
@@ -154,7 +154,7 @@ export default function OverviewPage({ items }: OverviewPageProps) {
               {recent.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between rounded-xl bg-surface-deep px-3 py-2"
+                  className="glass-inset flex items-center justify-between px-4 py-2.5"
                 >
                   <span className="font-heading text-[12px] text-ink">
                     {item.property}
